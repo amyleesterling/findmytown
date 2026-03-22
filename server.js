@@ -128,6 +128,7 @@ async function fetchTownListings(townName, regionId) {
 
   return parsed.payload.homes
     .filter(h => h.latLong?.value?.latitude && h.latLong?.value?.longitude)
+    .filter(h => !h.price?.value || h.price.value <= 1100000) // Max $1.1M
     .map(h => ({
       id: h.propertyId,
       mlsId: h.mlsId?.value,

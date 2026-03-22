@@ -148,6 +148,56 @@
   .listings-status button:hover { background: var(--deep); }
 
   /* ── Map Legend ── */
+  /* ── Town Info Card (persistent, updates on hover) ── */
+  .town-info-card {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.97);
+    border-radius: 10px;
+    box-shadow: 0 3px 16px rgba(0,0,0,0.18);
+    padding: 14px 16px;
+    width: 240px;
+    font-size: 0.78rem;
+    color: #333;
+    transition: opacity 0.2s;
+  }
+  .town-info-card.empty { opacity: 0.5; }
+  .town-info-card h4 {
+    font-size: 14px;
+    color: var(--ocean);
+    margin-bottom: 2px;
+    font-weight: 700;
+  }
+  .town-info-card .card-note {
+    font-size: 10px;
+    color: #999;
+    margin-bottom: 8px;
+  }
+  .town-info-card .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 10px;
+    font-size: 12px;
+  }
+  .town-info-card .card-grid b { color: var(--ocean); }
+  .town-info-card .card-niche {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 13px;
+    color: white;
+    margin-top: 8px;
+  }
+  .town-info-card .card-prompt {
+    text-align: center;
+    color: #aaa;
+    font-size: 11px;
+    padding: 12px 0;
+  }
+
   .map-legend {
     position: absolute;
     bottom: 12px;
@@ -578,6 +628,7 @@
   <div>Baths: <span>1.5+</span></div>
   <div>Sq Ft: <span>1,600+</span></div>
   <div>Lot: <span>10,000+ sq ft</span></div>
+  <div>Max Price: <span>$1,100,000</span></div>
   <div class="highlight-keywords">Highlight: <b>garden</b> · <b>pond</b> · <b>multigenerational</b> · <b>greenhouse</b></div>
 </div>
 
@@ -659,11 +710,14 @@
     <label><input type="radio" name="mapMode" value="crane"> Dist. to Crane</label>
     <label><input type="radio" name="mapMode" value="boston"> Dist. to Boston</label>
     <hr class="divider">
-    <label class="checkbox-label"><input type="checkbox" id="showBubbles" checked> Town bubbles</label>
+    <label class="checkbox-label"><input type="checkbox" id="showBubbles" checked> Town boundaries</label>
     <label class="checkbox-label"><input type="checkbox" id="showLabels" checked> Town names</label>
     <label class="checkbox-label"><input type="checkbox" id="showListings" checked> Redfin listings</label>
   </div>
   <div class="map-legend" id="mapLegend"></div>
+  <div class="town-info-card empty" id="townInfoCard">
+    <div class="card-prompt">Hover a listing to see town stats</div>
+  </div>
 </div>
 
 <!-- ── Charts ── -->
@@ -900,68 +954,110 @@ L.marker([42.3519, -71.0552], {
 }).addTo(map);
 
 // Town map layers
-const townMarkers = {};
-const townBubbles = {};
+const townMarkers = {};  // center dot markers (for popups)
 const townLabels = {};
+const townBoundaryLayers = {};  // GeoJSON boundary polygons
+let boundaryGeoJSON = null;     // raw GeoJSON data
+let boundaryLayerGroup = null;  // L.layerGroup for all boundaries
 let currentMode = 'niche';
 
-function getMarkerColorAndSize(t, mode) {
-  let color, size, tooltip;
+function getTownColor(t, mode) {
   switch (mode) {
     case 'niche':
-      color = t.nicheSort >= 3.7 ? '#27ae60' : t.nicheSort >= 3.0 ? '#f39c12' : '#e74c3c';
-      size = 10 + t.nicheSort * 6;
-      tooltip = `${t.name}: ${t.niche}`;
-      break;
+      return t.nicheSort >= 3.7 ? '#27ae60' : t.nicheSort >= 3.0 ? '#f39c12' : '#e74c3c';
     case 'tax':
-      color = colorForValue(t.estTax, 7000, 15000, true);
-      size = 10 + (t.estTax - 7000) / 8000 * 20;
-      tooltip = `${t.name}: $${t.estTax.toLocaleString()}/yr`;
-      break;
+      return colorForValue(t.estTax, 7000, 15000, true);
     case 'schools':
-      color = colorForValue(t.avgSchool, 3, 9, false);
-      size = 10 + t.avgSchool * 3;
-      tooltip = `${t.name}: avg ${t.avgSchool.toFixed(1)}/10`;
-      break;
+      return colorForValue(t.avgSchool, 3, 9, false);
     case 'crane':
-      color = colorForValue(t.craneMi, 5, 28, true);
-      size = 10 + (28 - t.craneMi) * 0.8;
-      tooltip = `${t.name}: ${t.craneMi} mi to Crane`;
-      break;
+      return colorForValue(t.craneMi, 5, 28, true);
     case 'boston':
-      color = colorForValue(t.bostonMi, 12, 38, true);
-      size = 10 + (38 - t.bostonMi) * 0.8;
-      tooltip = `${t.name}: ${t.bostonMi} mi to Boston`;
-      break;
+      return colorForValue(t.bostonMi, 12, 38, true);
   }
-  return { color, size, tooltip };
 }
 
-function buildMapMarkers() {
-  Object.values(townMarkers).forEach(m => map.removeLayer(m));
-  Object.values(townBubbles).forEach(m => map.removeLayer(m));
-  Object.values(townLabels).forEach(m => map.removeLayer(m));
+function getTownTooltip(t, mode) {
+  switch (mode) {
+    case 'niche': return `${t.name}: ${t.niche}`;
+    case 'tax': return `${t.name}: $${t.estTax.toLocaleString()}/yr`;
+    case 'schools': return `${t.name}: avg ${t.avgSchool.toFixed(1)}/10`;
+    case 'crane': return `${t.name}: ${t.craneMi} mi to Crane`;
+    case 'boston': return `${t.name}: ${t.bostonMi} mi to Boston`;
+  }
+}
 
-  const showBubbles = document.getElementById('showBubbles').checked;
+// Load boundaries from static file, then build map
+fetch('/boundaries.json')
+  .then(r => r.json())
+  .then(geo => { boundaryGeoJSON = geo; buildMapMarkers(); })
+  .catch(err => { console.warn('No boundaries file, using dots:', err); buildMapMarkers(); });
+
+function buildMapMarkers() {
+  // Clear existing
+  Object.values(townMarkers).forEach(m => map.removeLayer(m));
+  Object.values(townLabels).forEach(m => map.removeLayer(m));
+  if (boundaryLayerGroup) map.removeLayer(boundaryLayerGroup);
+
+  const showBoundaries = document.getElementById('showBubbles').checked;
   const showLabelsOpt = document.getElementById('showLabels').checked;
 
-  towns.forEach(t => {
-    const { color, size, tooltip } = getMarkerColorAndSize(t, currentMode);
-    const isVisible = visibleTowns.has(t.name);
-    const opacity = isVisible ? 0.85 : 0.15;
+  // Build boundary polygons
+  if (showBoundaries && boundaryGeoJSON) {
+    boundaryLayerGroup = L.geoJSON(boundaryGeoJSON, {
+      style: feature => {
+        const townName = feature.properties.town;
+        const t = towns.find(x => x.name === townName);
+        if (!t) return { fillOpacity: 0, weight: 1, color: '#999' };
+        const color = getTownColor(t, currentMode);
+        const isVisible = visibleTowns.has(t.name);
+        const isHighlighted = highlightedTown === t.name;
+        return {
+          fillColor: color,
+          fillOpacity: isVisible ? (isHighlighted ? 0.5 : 0.3) : 0.05,
+          color: isHighlighted ? '#0d2137' : color,
+          weight: isHighlighted ? 3 : 2,
+          opacity: isVisible ? 0.8 : 0.15,
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const townName = feature.properties.town;
+        const t = towns.find(x => x.name === townName);
+        if (!t) return;
+        layer.bindTooltip(getTownTooltip(t, currentMode), {
+          className: 'town-tooltip', direction: 'top', sticky: true
+        });
+        layer.on('click', () => onTownSelect(t.name));
+        layer.on('mouseover', () => {
+          if (highlightedTown !== t.name) {
+            layer.setStyle({ weight: 3, color: '#0d2137', fillOpacity: 0.4 });
+          }
+        });
+        layer.on('mouseout', () => {
+          if (highlightedTown !== t.name) {
+            const c = getTownColor(t, currentMode);
+            const vis = visibleTowns.has(t.name);
+            layer.setStyle({
+              weight: 2, color: c,
+              fillOpacity: vis ? 0.3 : 0.05,
+              opacity: vis ? 0.8 : 0.15,
+            });
+          }
+        });
+        townBoundaryLayers[townName] = layer;
+      }
+    }).addTo(map);
+  }
 
-    if (showBubbles) {
-      townBubbles[t.name] = L.circleMarker([t.lat, t.lon], {
-        radius: size, fillColor: color, fillOpacity: opacity * 0.35,
-        color: color, weight: 2, opacity: opacity * 0.6
-      }).addTo(map);
-    }
+  // Small center dots for popups
+  towns.forEach(t => {
+    const color = getTownColor(t, currentMode);
+    const isVisible = visibleTowns.has(t.name);
+    const opacity = isVisible ? 0.9 : 0.15;
 
     const dot = L.circleMarker([t.lat, t.lon], {
-      radius: 7, fillColor: color, fillOpacity: opacity,
-      color: 'white', weight: 2, opacity: opacity
+      radius: 4, fillColor: color, fillOpacity: opacity,
+      color: 'white', weight: 1.5, opacity: opacity
     }).addTo(map);
-    dot.bindTooltip(tooltip, { className: 'town-tooltip', direction: 'top', offset: [0, -10] });
     dot.bindPopup(buildTownPopup(t));
     dot.on('click', () => onTownSelect(t.name));
     townMarkers[t.name] = dot;
@@ -969,7 +1065,7 @@ function buildMapMarkers() {
     if (showLabelsOpt) {
       townLabels[t.name] = L.marker([t.lat, t.lon], {
         icon: L.divIcon({
-          html: `<div style="font-size:10px;font-weight:600;color:${color};text-shadow:1px 1px 2px white,-1px -1px 2px white,1px -1px 2px white,-1px 1px 2px white;white-space:nowrap;opacity:${opacity};">${t.name}</div>`,
+          html: `<div style="font-size:10px;font-weight:600;color:#0d2137;text-shadow:1px 1px 2px white,-1px -1px 2px white,1px -1px 2px white,-1px 1px 2px white;white-space:nowrap;opacity:${opacity};">${t.name}</div>`,
           className: '', iconAnchor: [-10, 5]
         }),
         interactive: false
@@ -1022,7 +1118,7 @@ function updateMapLegend() {
         <div class="lg-gradient" style="width:100px;height:10px;border-radius:5px;background:linear-gradient(to right, #27ae60, #f0b41e, #dc3232)"></div>
         <span style="font-size:10px">${inverted ? 'Highest' : 'Best'}</span>
       </div>
-      <div style="font-size:10px;margin-top:3px;color:#999;">Bubble size = relative magnitude</div>`;
+      <div style="font-size:10px;margin-top:3px;color:#999;">Town boundaries colored by value</div>`;
   }
 }
 
@@ -1195,43 +1291,74 @@ function plotListings() {
   });
 }
 
-// Temporary highlight (on listing hover) — lighter than full select
+// Update the persistent town info card
+function updateTownInfoCard(townName) {
+  const card = document.getElementById('townInfoCard');
+  const t = towns.find(x => x.name === townName);
+  if (!t) {
+    card.className = 'town-info-card empty';
+    card.innerHTML = '<div class="card-prompt">Hover a listing to see town stats</div>';
+    return;
+  }
+  const nicheColor = t.nicheSort >= 3.7 ? '#27ae60' : t.nicheSort >= 3.0 ? '#f39c12' : '#e74c3c';
+  card.className = 'town-info-card';
+  card.innerHTML = `
+    <h4>${t.name}</h4>
+    ${t.note ? `<div class="card-note">${t.note}</div>` : '<div style="height:4px"></div>'}
+    <div class="card-grid">
+      <div>&#127958; Crane: <b>${t.craneMi} mi</b></div>
+      <div>&#127970; Boston: <b>${t.bostonMi} mi</b></div>
+      <div>&#128176; Tax: <b>$${t.estTax.toLocaleString()}</b>/yr</div>
+      <div>&#127891; Niche: <b>${t.niche}</b></div>
+      <div>&#128218; Elem: <b>${t.gsElem}/10</b></div>
+      <div>&#128218; Middle: <b>${t.gsMiddle}/10</b></div>
+      <div>&#128218; High: <b>${t.gsHigh}/10</b></div>
+      <div>Built $${t.taxRate.toFixed(2)}/1K</div>
+    </div>
+    <div style="text-align:center"><span class="card-niche" style="background:${nicheColor}">${t.niche} Niche Grade</span></div>
+  `;
+}
+
+// Temporary highlight (on listing hover) — updates card + boundary
 function highlightTownFromListing(townName) {
-  // Highlight table row
+  updateTownInfoCard(townName);
+  // Highlight boundary
+  if (townBoundaryLayers[townName]) {
+    townBoundaryLayers[townName].setStyle({ weight: 3, color: '#0d2137', fillOpacity: 0.45 });
+  }
+  // Highlight table row (no scroll)
   Object.entries(tableRows).forEach(([n, tr]) => {
     if (n === townName) {
       tr.style.background = '#d5f5e3';
       tr.style.boxShadow = 'inset 4px 0 0 #48c9b0';
     }
   });
-  // Highlight chart bar
-  document.querySelectorAll('.bar-row').forEach(row => {
-    if (row.dataset.town === townName) {
-      row.style.background = 'rgba(72, 201, 176, 0.15)';
-      row.style.borderRadius = '4px';
-    }
-  });
-  // Pulse the town marker
-  if (townMarkers[townName]) {
-    townMarkers[townName].setStyle({ weight: 4, color: '#48c9b0' });
-  }
 }
 
 function unhighlightTownFromListing() {
-  // Remove temporary highlights (but keep permanent selection)
+  // Reset card to prompt if no town is permanently selected
+  if (!highlightedTown) {
+    updateTownInfoCard(null);
+  } else {
+    updateTownInfoCard(highlightedTown);
+  }
+  // Reset boundaries
+  Object.entries(townBoundaryLayers).forEach(([name, layer]) => {
+    if (name !== highlightedTown) {
+      const t = towns.find(x => x.name === name);
+      if (t) {
+        const c = getTownColor(t, currentMode);
+        const vis = visibleTowns.has(name);
+        layer.setStyle({ weight: 2, color: c, fillOpacity: vis ? 0.3 : 0.05, opacity: vis ? 0.8 : 0.15 });
+      }
+    }
+  });
+  // Reset table rows
   Object.entries(tableRows).forEach(([n, tr]) => {
     if (n !== highlightedTown) {
       tr.style.background = '';
       tr.style.boxShadow = '';
     }
-  });
-  document.querySelectorAll('.bar-row').forEach(row => {
-    row.style.background = '';
-    row.style.borderRadius = '';
-  });
-  // Reset town markers
-  Object.entries(townMarkers).forEach(([name, m]) => {
-    m.setStyle({ weight: 2, color: 'white' });
   });
 }
 
@@ -1245,6 +1372,9 @@ function onTownSelect(name) {
     highlightedTown = name;
   }
 
+  // Update info card
+  updateTownInfoCard(highlightedTown);
+
   Object.entries(tableRows).forEach(([n, tr]) => {
     tr.classList.toggle('row-highlight', n === highlightedTown);
     tr.style.background = '';
@@ -1257,11 +1387,12 @@ function onTownSelect(name) {
       map.flyTo([t.lat, t.lon], 12, { duration: 0.8 });
       townMarkers[t.name].openPopup();
     }
-    const row = tableRows[highlightedTown];
-    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } else {
     map.flyTo([42.58, -70.85], 10, { duration: 0.8 });
   }
+
+  // Update boundary styles
+  buildMapMarkers();
 
   // Dim listings not in selected town
   listingMarkers.forEach((m, i) => {
