@@ -10,7 +10,7 @@ const TOWN_IDS = {
   "Beverly": 1490, "Boxford": 36095, "Danvers": 36103, "Essex": 36111,
   "Gloucester": 6697, "Hamilton": 29750, "Ipswich": 36126, "Lynn": 9515,
   "Manchester-by-the-Sea": 29618, "Marblehead": 36132, "Middleton": 29803,
-  "Nahant": 36139, "Newbury": 29796, "Newburyport": 11531, "Peabody": 13521,
+  "Nahant": 36139, "Newbury": 29796, "Peabody": 13521,
   "Rockport": 36156, "Rowley": 36157, "Salem": 15302, "Swampscott": 36170,
   "Topsfield": 36171, "Wenham": 29567
 };
@@ -100,6 +100,22 @@ app.get('/api/photo/:propertyId', async (req, res) => {
   }
 });
 
+// ── Geocode an address using Nominatim (free, no API key) ──
+app.get('/api/geocode', async (req, res) => {
+  const q = req.query.q;
+  if (!q) return res.json({ error: 'No query' });
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=us`;
+    const data = await fetchUrl(url, { 'Referer': 'https://findmytown.local/' });
+    const results = JSON.parse(data);
+    if (results.length === 0) return res.json({ error: 'Address not found' });
+    const r = results[0];
+    res.json({ lat: parseFloat(r.lat), lon: parseFloat(r.lon), display: r.display_name });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 // ── Fetch listings for one town via Redfin GIS API ──
 async function fetchTownListings(townName, regionId) {
   const params = new URLSearchParams({
@@ -109,7 +125,7 @@ async function fetchTownListings(townName, regionId) {
     page_number: '1',
     sf: '1,2,3,5,6,7',
     status: '9',
-    uipt: '1,2,3,4,5,6,7,8',
+    uipt: '1',  // Single-family homes only
     v: '8',
     min_listing_approx_size: '1600',
     min_num_beds: '3',
