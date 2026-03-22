@@ -769,6 +769,7 @@
     <div class="dot loading" id="statusDot"></div>
     <span id="statusText">Loading listings...</span>
     <button id="refreshBtn" style="display:none" onclick="fetchListings()">Refresh</button>
+    <button onclick="undoAllDismissals()" style="background:none;border:1px solid #999;color:#999;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.68rem;">Undo dismissals</button>
   </div>
 
   <div class="map-controls">
@@ -903,6 +904,36 @@ let visibleTowns = new Set(towns.map(t => t.name));
 let highlightedTown = null;
 let listingsData = [];
 let listingMarkers = [];
+let listingMarkerMap = {}; // id → marker
+const dismissedIds = new Set(JSON.parse(localStorage.getItem('dismissedListings') || '[]'));
+const visitedIds = new Set(JSON.parse(localStorage.getItem('visitedListings') || '[]'));
+const heartedIds = new Set(JSON.parse(localStorage.getItem('heartedListings') || '[]'));
+
+function saveVisited() { localStorage.setItem('visitedListings', JSON.stringify([...visitedIds])); }
+function saveHearted() { localStorage.setItem('heartedListings', JSON.stringify([...heartedIds])); }
+
+function toggleHeart(id) {
+  if (heartedIds.has(id)) heartedIds.delete(id);
+  else heartedIds.add(id);
+  saveHearted();
+  // Update marker color
+  updateMarkerStyle(id);
+  // Update popup heart button text
+  const btn = document.querySelector('.heart-btn-' + id);
+  if (btn) btn.textContent = heartedIds.has(id) ? '❤️ Loved' : '🤍 Love';
+}
+
+function updateMarkerStyle(id) {
+  const m = listingMarkerMap[id];
+  if (!m) return;
+  if (heartedIds.has(id)) {
+    m.setStyle({ fillColor: '#e91e63', color: '#e91e63', radius: 7, fillOpacity: 0.9 });
+  } else if (visitedIds.has(id)) {
+    m.setStyle({ fillColor: '#7f8c8d', color: '#7f8c8d', radius: 5, fillOpacity: 0.6 });
+  } else {
+    m.setStyle({ fillColor: '#2980b9', color: 'white', radius: 5, fillOpacity: 0.8 });
+  }
+}
 
 // =============================================
 // HELPERS
@@ -1252,27 +1283,55 @@ async function fetchListings() {
   }
 }
 
+function dismissListing(id) {
+  dismissedIds.add(id);
+  localStorage.setItem('dismissedListings', JSON.stringify([...dismissedIds]));
+  // Remove marker from map
+  if (listingMarkerMap[id]) {
+    map.removeLayer(listingMarkerMap[id]);
+    delete listingMarkerMap[id];
+  }
+  map.closePopup();
+  // Update count
+  const visible = listingsData.filter(l => !dismissedIds.has(l.id)).length;
+  document.getElementById('statusText').textContent =
+    document.getElementById('statusText').textContent.replace(/\d+ listings/, visible + ' listings');
+}
+
+function undoAllDismissals() {
+  dismissedIds.clear();
+  localStorage.removeItem('dismissedListings');
+  plotListings();
+}
+
 function plotListings() {
   // Clear old markers
   listingMarkers.forEach(m => map.removeLayer(m));
   listingMarkers = [];
+  listingMarkerMap = {};
 
   const showListings = document.getElementById('showListings').checked;
 
   listingsData.forEach(listing => {
+    if (dismissedIds.has(listing.id)) return; // Skip dismissed
     if (!listing.lat || !listing.lon) return;
 
     const town = listing.town;
     const townName = town ? town.name : 'Unknown';
     const isInVisibleTown = town && visibleTowns.has(town.name);
 
-    // Listing marker - small house dot
+    // Listing marker - color based on state
+    const isHearted = heartedIds.has(listing.id);
+    const isVisited = visitedIds.has(listing.id);
+    const dotColor = isHearted ? '#e91e63' : isVisited ? '#7f8c8d' : '#2980b9';
+    const dotRadius = isHearted ? 7 : 5;
+
     const marker = L.circleMarker([listing.lat, listing.lon], {
-      radius: 5,
-      fillColor: '#2980b9',
-      fillOpacity: isInVisibleTown ? 0.8 : 0.15,
-      color: 'white',
-      weight: 1.5,
+      radius: dotRadius,
+      fillColor: dotColor,
+      fillOpacity: isInVisibleTown ? (isHearted ? 0.95 : isVisited ? 0.5 : 0.8) : 0.15,
+      color: isHearted ? '#e91e63' : 'white',
+      weight: isHearted ? 2 : 1.5,
       opacity: isInVisibleTown ? 0.9 : 0.15,
       pane: 'markerPane'
     });
@@ -1318,7 +1377,11 @@ function plotListings() {
         ${listing.yearBuilt ? `<span>Built <b>${listing.yearBuilt}</b></span>` : ''}
       </div>
       <div class="listing-town">${townName}${town ? ` · ${town.niche} · $${town.estTax.toLocaleString()}/yr tax` : ''}</div>
-      ${listing.redfinUrl ? `<a class="listing-link" href="${listing.redfinUrl}" target="_blank">View on Redfin &#8599;</a>` : ''}
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        ${listing.redfinUrl ? `<a class="listing-link" href="${listing.redfinUrl}" target="_blank" style="flex:1">Redfin &#8599;</a>` : ''}
+        <button onclick="toggleHeart(${listing.id})" class="heart-btn-${listing.id}" style="background:${heartedIds.has(listing.id) ? '#e91e63' : '#f0f0f0'};color:${heartedIds.has(listing.id) ? 'white' : '#333'};border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">${heartedIds.has(listing.id) ? '❤️ Loved' : '🤍 Love'}</button>
+        <button onclick="dismissListing(${listing.id})" style="background:#ddd;color:#666;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;" title="Dismiss">&#128465;</button>
+      </div>
     </div>`;
 
     marker.bindPopup(popupHtml, { maxWidth: 300 });
@@ -1330,10 +1393,20 @@ function plotListings() {
     marker.on('mouseout', () => {
       if (town) unhighlightTownFromListing();
     });
-    // No click-to-select-town — listings just show popup on click
+    // Mark as visited when popup opens
+    marker.on('popupopen', () => {
+      if (!visitedIds.has(listing.id)) {
+        visitedIds.add(listing.id);
+        saveVisited();
+        if (!heartedIds.has(listing.id)) {
+          marker.setStyle({ fillColor: '#7f8c8d', color: '#7f8c8d', fillOpacity: 0.5 });
+        }
+      }
+    });
 
     if (showListings) marker.addTo(map);
     listingMarkers.push(marker);
+    listingMarkerMap[listing.id] = marker;
   });
 }
 

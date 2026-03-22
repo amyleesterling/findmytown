@@ -149,6 +149,7 @@ async function fetchTownListings(townName, regionId) {
 
   return parsed.payload.homes
     .filter(h => h.latLong?.value?.latitude && h.latLong?.value?.longitude)
+    .filter(h => h.uiPropertyType === 1) // Single-family only
     .filter(h => h.price?.value >= 650000 && h.price.value <= 1100000) // $650K–$1.1M
     .map(h => ({
       id: h.propertyId,
