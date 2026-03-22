@@ -760,16 +760,12 @@
 </head>
 <body>
 
-<header style="padding:6px 2rem;display:flex;align-items:center;justify-content:space-between;">
-  <img src="logo.png" alt="FindMyTown" style="height:80px;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3));">
-  <div style="font-size:0.7rem;opacity:0.45;text-align:right;">Single Family Home (SFH) $650K–$1.1M · 3+bd · 1,600+sqft · 10K+lot</div>
-</header>
-
-<!-- ── Main Tab Navigation ── -->
+<!-- ── Tab Bar with criteria ── -->
 <div class="main-tabs">
   <button class="main-tab active" data-view="map">Map</button>
   <button class="main-tab" data-view="favorites">Favorites <span id="favCount" class="tab-badge">0</span></button>
   <button class="main-tab" data-view="sold">Sold Trends</button>
+  <div style="margin-left:auto;font-size:0.72rem;color:rgba(255,255,255,0.5);padding-right:1rem;display:flex;align-items:center;">Single Family Home (SFH) $650K–$1.1M · 3+bd · 1,600+sqft · 10K+lot</div>
 </div>
 
 <div id="view-map">
@@ -805,6 +801,7 @@
   </div>
 
   <div class="map-controls">
+    <img src="logo.png" alt="FindMyTown" style="width:100%;margin-bottom:8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));">
     <h3>Town Color</h3>
     <label><input type="radio" name="mapMode" value="niche" checked> Niche Grade</label>
     <label><input type="radio" name="mapMode" value="tax"> Tax Rate</label>
