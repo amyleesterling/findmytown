@@ -592,6 +592,90 @@
   .legend-item { display: flex; align-items: center; gap: 0.4rem; }
   .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
 
+  /* ── Main Tab Navigation ── */
+  .main-tabs {
+    display: flex;
+    background: var(--deep);
+    padding: 0;
+    border-bottom: 3px solid var(--ocean);
+  }
+  .main-tab {
+    padding: 10px 24px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -3px;
+    transition: all 0.2s;
+  }
+  .main-tab:hover { color: white; }
+  .main-tab.active {
+    color: white;
+    border-bottom-color: var(--seafoam);
+    background: rgba(255,255,255,0.05);
+  }
+  .tab-badge {
+    background: var(--coral);
+    color: white;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    margin-left: 4px;
+  }
+
+  /* ── Favorites Grid ── */
+  .favorites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .fav-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: transform 0.15s;
+    cursor: pointer;
+  }
+  .fav-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+  .fav-card img {
+    width: 100%;
+    height: 170px;
+    object-fit: cover;
+    display: block;
+    background: #eee;
+  }
+  .fav-card .fav-body { padding: 12px 14px; }
+  .fav-card .fav-price { font-size: 18px; font-weight: 700; color: var(--ocean); }
+  .fav-card .fav-addr { font-size: 12px; color: #666; margin-bottom: 4px; }
+  .fav-card .fav-stats { font-size: 12px; color: #888; }
+  .fav-card .fav-town { font-size: 11px; background: var(--seafoam); color: white; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 6px; }
+  .fav-card .fav-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .fav-card .fav-actions a, .fav-card .fav-actions button {
+    padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+  }
+
+  /* ── Sold Stats ── */
+  .sold-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 1rem;
+  }
+  .sold-stat-card {
+    background: white;
+    border-radius: 8px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    text-align: center;
+  }
+  .sold-stat-card .stat-value { font-size: 22px; font-weight: 700; color: var(--ocean); }
+  .sold-stat-card .stat-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+
   .sources {
     background: var(--sky);
     padding: 1.5rem 2rem;
@@ -680,6 +764,14 @@
   <p>North Shore &amp; Greater Boston home search — 37 towns with live Redfin listings, school ratings, taxes, and commute times.</p>
 </header>
 
+<!-- ── Main Tab Navigation ── -->
+<div class="main-tabs">
+  <button class="main-tab active" data-view="map">Map &amp; Listings</button>
+  <button class="main-tab" data-view="favorites">Favorites <span id="favCount" class="tab-badge">0</span></button>
+  <button class="main-tab" data-view="sold">Sold Trends</button>
+</div>
+
+<div id="view-map">
 <div class="criteria-bar">
   <div>Beds: <span>3+</span></div>
   <div>Baths: <span>1.5+</span></div>
@@ -834,6 +926,51 @@
     <button class="chart-tab" data-chart="sat">Avg SAT</button>
   </div>
   <div class="chart-container" id="chartContainer"></div>
+</div>
+
+</div><!-- end view-map -->
+
+<!-- ── Favorites View ── -->
+<div id="view-favorites" style="display:none">
+  <div class="section">
+    <h2 style="display:flex;align-items:center;gap:12px;">
+      <span style="color:var(--coral);">Favorites</span>
+      <span id="favSummary" style="font-size:0.85rem;color:var(--driftwood);font-weight:400;"></span>
+    </h2>
+    <div id="favoritesGrid" class="favorites-grid"></div>
+    <div id="favoritesEmpty" style="text-align:center;padding:3rem;color:#999;">
+      No favorites yet — click the heart on any listing to save it here.
+    </div>
+  </div>
+</div>
+
+<!-- ── Sold Trends View ── -->
+<div id="view-sold" style="display:none">
+  <div class="section">
+    <h2>Recently <span>Sold</span> <span id="soldSummary" style="font-size:0.85rem;color:var(--driftwood);font-weight:400;margin-left:12px;"></span></h2>
+    <div id="soldLoading" style="text-align:center;padding:2rem;color:#999;">Loading sold data...</div>
+    <div id="soldContent" style="display:none">
+      <div id="soldStats" class="sold-stats"></div>
+      <div class="table-wrap" style="margin-top:1rem;">
+        <table id="soldTable">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Town</th>
+              <th>List Price</th>
+              <th>Sale Price</th>
+              <th>Diff</th>
+              <th>Sold Date</th>
+              <th>Beds</th>
+              <th>Sqft</th>
+              <th>DOM</th>
+            </tr>
+          </thead>
+          <tbody id="soldTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="sources">
@@ -1724,6 +1861,142 @@ async function addCustomDest() {
     status.textContent = 'Error: ' + err.message;
     status.style.color = '#e74c3c';
   }
+}
+
+// =============================================
+// TAB NAVIGATION
+// =============================================
+document.querySelectorAll('.main-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const view = tab.dataset.view;
+    document.getElementById('view-map').style.display = view === 'map' ? '' : 'none';
+    document.getElementById('view-favorites').style.display = view === 'favorites' ? '' : 'none';
+    document.getElementById('view-sold').style.display = view === 'sold' ? '' : 'none';
+    if (view === 'favorites') renderFavorites();
+    if (view === 'sold') loadSoldData();
+    if (view === 'map') map.invalidateSize(); // fix map rendering after hidden
+  });
+});
+
+// =============================================
+// FAVORITES VIEW
+// =============================================
+function renderFavorites() {
+  const grid = document.getElementById('favoritesGrid');
+  const empty = document.getElementById('favoritesEmpty');
+  const favs = listingsData.filter(l => heartedIds.has(l.id));
+
+  document.getElementById('favCount').textContent = favs.length;
+  document.getElementById('favSummary').textContent = `${favs.length} saved listings`;
+
+  if (favs.length === 0) {
+    grid.style.display = 'none';
+    empty.style.display = '';
+    return;
+  }
+
+  grid.style.display = '';
+  empty.style.display = 'none';
+
+  grid.innerHTML = favs.map(l => {
+    const town = l.town || findTownForListing(l.lat, l.lon, l.city);
+    const townName = town ? town.name : l.city;
+    return `<div class="fav-card">
+      ${l.photoUrl ? `<img src="${l.photoUrl}" onerror="this.style.display='none'" alt="">` : '<div style="height:170px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;">No photo</div>'}
+      <div class="fav-body">
+        <div class="fav-price">${l.priceFormatted || formatPrice(l.price)}</div>
+        <div class="fav-addr">${l.address}, ${l.city} ${l.state} ${l.zip}</div>
+        <div class="fav-stats">${l.beds} bd · ${l.baths} ba · ${l.sqft ? l.sqft.toLocaleString() + ' sqft' : ''} ${l.lotSqft ? ' · ' + (l.lotSqft / 43560).toFixed(2) + ' acres' : ''}</div>
+        <div class="fav-town">${townName}${town ? ' · ' + town.niche + ' · SAT ' + town.sat : ''}</div>
+        <div class="fav-actions">
+          ${l.redfinUrl ? `<a href="${l.redfinUrl}" target="_blank" style="background:var(--coral);color:white;">Redfin &#8599;</a>` : ''}
+          <button onclick="toggleHeart(${l.id});renderFavorites();" style="background:#ddd;color:#666;">Remove</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Update fav count badge whenever hearts change
+const origToggleHeart = toggleHeart;
+toggleHeart = function(id) {
+  origToggleHeart(id);
+  document.getElementById('favCount').textContent = heartedIds.size;
+};
+
+// =============================================
+// SOLD TRENDS VIEW
+// =============================================
+let soldData = null;
+let soldLoaded = false;
+
+async function loadSoldData() {
+  if (soldLoaded) { renderSoldView(); return; }
+  const loading = document.getElementById('soldLoading');
+  const content = document.getElementById('soldContent');
+  loading.style.display = '';
+  content.style.display = 'none';
+
+  try {
+    const resp = await fetch('sold.json');
+    if (!resp.ok) throw new Error('No sold data yet');
+    soldData = await resp.json();
+    soldLoaded = true;
+    renderSoldView();
+  } catch (err) {
+    loading.textContent = 'Sold data not available yet — run the fetch-sold script to generate it.';
+  }
+}
+
+function renderSoldView() {
+  if (!soldData) return;
+  const loading = document.getElementById('soldLoading');
+  const content = document.getElementById('soldContent');
+  loading.style.display = 'none';
+  content.style.display = '';
+
+  const sales = soldData.sales || [];
+  document.getElementById('soldSummary').textContent = `${sales.length} homes sold in last 5 months`;
+
+  // Stats
+  const prices = sales.map(s => s.salePrice).filter(p => p > 0);
+  const listPrices = sales.map(s => s.listPrice).filter(p => p > 0);
+  const diffs = sales.filter(s => s.listPrice > 0 && s.salePrice > 0).map(s => ((s.salePrice - s.listPrice) / s.listPrice * 100));
+  const doms = sales.map(s => s.dom).filter(d => d > 0);
+
+  const avgSale = prices.length ? Math.round(prices.reduce((a,b) => a+b, 0) / prices.length) : 0;
+  const medSale = prices.length ? prices.sort((a,b) => a-b)[Math.floor(prices.length/2)] : 0;
+  const avgDiff = diffs.length ? (diffs.reduce((a,b) => a+b, 0) / diffs.length).toFixed(1) : 0;
+  const avgDom = doms.length ? Math.round(doms.reduce((a,b) => a+b, 0) / doms.length) : 0;
+
+  document.getElementById('soldStats').innerHTML = `
+    <div class="sold-stat-card"><div class="stat-value">${sales.length}</div><div class="stat-label">Homes Sold</div></div>
+    <div class="sold-stat-card"><div class="stat-value">$${(avgSale/1000).toFixed(0)}K</div><div class="stat-label">Avg Sale Price</div></div>
+    <div class="sold-stat-card"><div class="stat-value">$${(medSale/1000).toFixed(0)}K</div><div class="stat-label">Median Sale Price</div></div>
+    <div class="sold-stat-card"><div class="stat-value">${avgDiff > 0 ? '+' : ''}${avgDiff}%</div><div class="stat-label">Avg List vs Sale</div></div>
+    <div class="sold-stat-card"><div class="stat-value">${avgDom}</div><div class="stat-label">Avg Days on Market</div></div>
+  `;
+
+  // Table
+  const tbody = document.getElementById('soldTableBody');
+  tbody.innerHTML = sales.sort((a,b) => (b.soldDate || 0) - (a.soldDate || 0)).map(s => {
+    const diff = s.listPrice > 0 && s.salePrice > 0 ? ((s.salePrice - s.listPrice) / s.listPrice * 100) : null;
+    const diffColor = diff > 0 ? '#27ae60' : diff < 0 ? '#e74c3c' : '#666';
+    const soldDateStr = s.soldDate ? new Date(s.soldDate).toLocaleDateString() : '—';
+    return `<tr>
+      <td><a href="${s.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${s.address}</a></td>
+      <td>${s.city}</td>
+      <td>$${(s.listPrice/1000).toFixed(0)}K</td>
+      <td style="font-weight:600">$${(s.salePrice/1000).toFixed(0)}K</td>
+      <td style="color:${diffColor};font-weight:600">${diff !== null ? (diff > 0 ? '+' : '') + diff.toFixed(1) + '%' : '—'}</td>
+      <td>${soldDateStr}</td>
+      <td>${s.beds}</td>
+      <td>${s.sqft ? s.sqft.toLocaleString() : '—'}</td>
+      <td>${s.dom || '—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // =============================================
