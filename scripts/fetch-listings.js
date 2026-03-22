@@ -95,6 +95,7 @@ async function fetchTownListings(townName, regionId) {
       status: h.mlsStatus || 'Active',
       townMatch: townName,
       photoUrl: null,
+      description: '',
     }));
 }
 
@@ -108,6 +109,9 @@ async function scrapePhotos(listings) {
         const html = await fetchUrl(l.redfinUrl);
         const ogMatch = html.match(/og:image[^>]*content="([^"]+)"/);
         if (ogMatch) l.photoUrl = ogMatch[1];
+        // Extract listing description
+        const descMatch = html.match(/og:description[^>]*content="([^"]+)"/);
+        if (descMatch) l.description = descMatch[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
       } catch { /* skip */ }
     }));
     await sleep(600);

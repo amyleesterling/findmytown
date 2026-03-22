@@ -1914,7 +1914,7 @@ document.getElementById('listingSearch').addEventListener('input', function() {
     if (dismissedIds.has(l.id)) return;
     const m = listingMarkerMap[l.id];
     if (!m) return;
-    const haystack = `${l.address} ${l.city} ${l.redfinUrl || ''}`.toLowerCase();
+    const haystack = `${l.address} ${l.city} ${l.description || ''} ${l.redfinUrl || ''}`.toLowerCase();
     const hit = haystack.includes(q);
     if (hit) matches++;
     m.setStyle({
