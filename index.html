@@ -968,7 +968,8 @@ const towns = [
   { name:"Arlington",lat:42.4154,lon:-71.1565,craneMi:32,craneMn:48,bostonMi:7,bostonMn:16,taxRate:10.77,gsElem:8,gsMiddle:7,gsHigh:8,niche:"A",nicheSort:4.0,redfin:"arlington",sat:1266 },
   { name:"Concord",lat:42.4604,lon:-71.3489,craneMi:40,craneMn:58,bostonMi:20,bostonMn:35,taxRate:13.26,gsElem:9,gsMiddle:8,gsHigh:9,niche:"A+",nicheSort:4.3,redfin:"concord",note:"Concord-Carlisle Regional HS",sat:1277 },
   { name:"Somerville",lat:42.3876,lon:-71.0995,craneMi:32,craneMn:45,bostonMi:4,bostonMn:12,taxRate:10.91,gsElem:6,gsMiddle:6,gsHigh:6,niche:"A-",nicheSort:3.7,redfin:"somerville",sat:1175 },
-  { name:"Stoneham",lat:42.4801,lon:-71.0995,craneMi:37,craneMn:50,bostonMi:10,bostonMn:17,taxRate:10.06,gsElem:7,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"stoneham",sat:1240 }
+  { name:"Stoneham",lat:42.4801,lon:-71.0995,craneMi:37,craneMn:50,bostonMi:10,bostonMn:17,taxRate:10.06,gsElem:7,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"stoneham",sat:1240 },
+  { name:"Lynnfield",lat:42.539,lon:-71.048,craneMi:25,craneMn:45,bostonMi:17,bostonMn:21,taxRate:11.46,gsElem:10,gsMiddle:7,gsHigh:7,niche:"A",nicheSort:4.0,redfin:"lynnfield",sat:1185 }
 ];
 
 // Precompute
@@ -1338,7 +1339,7 @@ async function fetchListings() {
       l.town = findTownForListing(l.lat, l.lon, l.city);
     });
 
-    plotListings();
+    try { plotListings(); } catch(plotErr) { console.error('plotListings error:', plotErr); }
 
     if (listingsData.length === 0 && (data.loading || data.stale)) {
       // Server is still fetching — poll again
@@ -1606,55 +1607,7 @@ function onTownSelect(name) {
   updateChartHighlight();
 }
 
-// =============================================
-// FILTERS
-// =============================================
-const filterEls = {
-  niche: document.getElementById('fNiche'),
-  tax: document.getElementById('fTax'),
-  crane: document.getElementById('fCrane'),
-  boston: document.getElementById('fBoston'),
-  school: document.getElementById('fSchool')
-};
-
-function applyFilters() {
-  const fNiche = parseFloat(filterEls.niche.value);
-  const fTax = parseInt(filterEls.tax.value);
-  const fCrane = parseInt(filterEls.crane.value);
-  const fBoston = parseInt(filterEls.boston.value);
-  const fSchool = parseInt(filterEls.school.value);
-
-  visibleTowns = new Set();
-  towns.forEach(t => {
-    const pass = t.nicheSort >= fNiche && t.estTax <= fTax &&
-                 t.craneMi <= fCrane && t.bostonMi <= fBoston && t.gsElem >= fSchool;
-    if (pass) visibleTowns.add(t.name);
-    tableRows[t.name].classList.toggle('row-hidden', !pass);
-  });
-
-  document.getElementById('filterCount').textContent =
-    `Showing ${visibleTowns.size} of ${towns.length} towns`;
-
-  buildMapMarkers();
-  buildChart(currentChart);
-
-  // Update listing visibility
-  listingMarkers.forEach((m, i) => {
-    const l = listingsData[i];
-    if (!l) return;
-    const inVisible = l.town && visibleTowns.has(l.town.name);
-    m.setStyle({
-      fillOpacity: inVisible ? 0.8 : 0.15,
-      opacity: inVisible ? 0.9 : 0.15
-    });
-  });
-}
-
-Object.values(filterEls).forEach(el => el.addEventListener('change', applyFilters));
-document.getElementById('filterReset').addEventListener('click', () => {
-  Object.values(filterEls).forEach(el => el.selectedIndex = 0);
-  applyFilters();
-});
+// Filters removed — all towns always visible
 
 // =============================================
 // CHARTS
