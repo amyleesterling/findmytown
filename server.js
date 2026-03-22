@@ -12,7 +12,11 @@ const TOWN_IDS = {
   "Manchester-by-the-Sea": 29618, "Marblehead": 36132, "Middleton": 29803,
   "Nahant": 36139, "Newbury": 29796, "Peabody": 13521,
   "Rockport": 36156, "Rowley": 36157, "Salem": 15302, "Swampscott": 36170,
-  "Topsfield": 36171, "Wenham": 29567
+  "Topsfield": 36171, "Wenham": 29567,
+  "Billerica": 29563, "Wilmington": 36184, "Burlington": 36100, "Bedford": 29655,
+  "Reading": 36155, "Wakefield": 36174, "Woburn": 20294, "Winchester": 36186,
+  "Lexington": 36128, "Saugus": 36162, "Melrose": 10229, "Malden": 9614,
+  "Medford": 10142, "North Reading": 29768
 };
 
 // Cache: { listings: [...], photos: Map, lastFetch: timestamp }

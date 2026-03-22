@@ -620,7 +620,7 @@
 
 <header>
   <h1>Find My <span>Town</span></h1>
-  <p>North Shore MA home search — 20 towns from Lynn to Newbury with live Redfin listings, school ratings, taxes, and commute times.</p>
+  <p>North Shore &amp; Greater Boston home search — 34 towns with live Redfin listings, school ratings, taxes, and commute times.</p>
 </header>
 
 <div class="criteria-bar">
@@ -700,7 +700,7 @@
     </select>
   </div>
   <button class="filter-reset" id="filterReset">Reset All</button>
-  <div class="filter-count" id="filterCount">Showing 20 of 20 towns</div>
+  <div class="filter-count" id="filterCount">Showing 34 of 34 towns</div>
 </div>
 
 <!-- ── Map ── -->
@@ -813,7 +813,21 @@ const towns = [
   { name:"Salem",lat:42.5195,lon:-70.8967,craneMi:18,craneMn:28,bostonMi:16,bostonMn:30,taxRate:11.34,gsElem:5,gsMiddle:4,gsHigh:5,niche:"B",nicheSort:3.0,redfin:"salem" },
   { name:"Swampscott",lat:42.4732,lon:-70.9176,craneMi:23,craneMn:35,bostonMi:14,bostonMn:28,taxRate:11.47,gsElem:7,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"swampscott" },
   { name:"Topsfield",lat:42.6376,lon:-70.9495,craneMi:14,craneMn:22,bostonMi:25,bostonMn:38,taxRate:14.99,gsElem:8,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"topsfield",note:"Masconomet Regional (6-12)" },
-  { name:"Wenham",lat:42.6037,lon:-70.8737,craneMi:12,craneMn:20,bostonMi:27,bostonMn:40,taxRate:15.54,gsElem:7,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"wenham",note:"Hamilton-Wenham Regional" }
+  { name:"Wenham",lat:42.6037,lon:-70.8737,craneMi:12,craneMn:20,bostonMi:27,bostonMn:40,taxRate:15.54,gsElem:7,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"wenham",note:"Hamilton-Wenham Regional" },
+  { name:"Billerica",lat:42.5584,lon:-71.2689,craneMi:38,craneMn:55,bostonMi:22,bostonMn:35,taxRate:11.37,gsElem:5,gsMiddle:5,gsHigh:5,niche:"A-",nicheSort:3.7,redfin:"billerica" },
+  { name:"Wilmington",lat:42.5465,lon:-71.1735,craneMi:33,craneMn:48,bostonMi:18,bostonMn:30,taxRate:11.78,gsElem:7,gsMiddle:7,gsHigh:9,niche:"B+",nicheSort:3.3,redfin:"wilmington" },
+  { name:"Burlington",lat:42.5048,lon:-71.1956,craneMi:35,craneMn:50,bostonMi:14,bostonMn:25,taxRate:12.30,gsElem:7,gsMiddle:7,gsHigh:9,niche:"A",nicheSort:4.0,redfin:"burlington" },
+  { name:"Bedford",lat:42.4907,lon:-71.2760,craneMi:40,craneMn:55,bostonMi:18,bostonMn:30,taxRate:12.04,gsElem:8,gsMiddle:8,gsHigh:10,niche:"A+",nicheSort:4.3,redfin:"bedford" },
+  { name:"Reading",lat:42.5257,lon:-71.0953,craneMi:30,craneMn:45,bostonMi:14,bostonMn:25,taxRate:11.39,gsElem:8,gsMiddle:8,gsHigh:9,niche:"A-",nicheSort:3.7,redfin:"reading" },
+  { name:"Wakefield",lat:42.5065,lon:-71.0748,craneMi:30,craneMn:42,bostonMi:12,bostonMn:22,taxRate:11.35,gsElem:7,gsMiddle:7,gsHigh:8,niche:"B",nicheSort:3.0,redfin:"wakefield" },
+  { name:"Woburn",lat:42.4793,lon:-71.1523,craneMi:33,craneMn:48,bostonMi:12,bostonMn:22,taxRate:8.54,gsElem:5,gsMiddle:5,gsHigh:5,niche:"B-",nicheSort:2.7,redfin:"woburn" },
+  { name:"Winchester",lat:42.4522,lon:-71.1370,craneMi:34,craneMn:48,bostonMi:10,bostonMn:20,taxRate:10.06,gsElem:8,gsMiddle:8,gsHigh:9,niche:"A+",nicheSort:4.3,redfin:"winchester" },
+  { name:"Lexington",lat:42.4431,lon:-71.2290,craneMi:40,craneMn:55,bostonMi:14,bostonMn:28,taxRate:12.23,gsElem:9,gsMiddle:9,gsHigh:10,niche:"A+",nicheSort:4.3,redfin:"lexington" },
+  { name:"Saugus",lat:42.4649,lon:-71.0103,craneMi:28,craneMn:40,bostonMi:10,bostonMn:20,taxRate:10.68,gsElem:3,gsMiddle:3,gsHigh:3,niche:"C+",nicheSort:2.3,redfin:"saugus" },
+  { name:"Melrose",lat:42.4585,lon:-71.0601,craneMi:30,craneMn:42,bostonMi:9,bostonMn:18,taxRate:9.90,gsElem:7,gsMiddle:5,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"melrose" },
+  { name:"Malden",lat:42.4251,lon:-71.0662,craneMi:32,craneMn:45,bostonMi:7,bostonMn:15,taxRate:11.32,gsElem:4,gsMiddle:4,gsHigh:3,niche:"B",nicheSort:3.0,redfin:"malden" },
+  { name:"Medford",lat:42.4184,lon:-71.1062,craneMi:33,craneMn:48,bostonMi:6,bostonMn:15,taxRate:11.70,gsElem:5,gsMiddle:5,gsHigh:6,niche:"B",nicheSort:3.0,redfin:"medford" },
+  { name:"North Reading",lat:42.5750,lon:-71.0787,craneMi:28,craneMn:40,bostonMi:20,bostonMn:32,taxRate:13.06,gsElem:8,gsMiddle:7,gsHigh:8,niche:"A",nicheSort:4.0,redfin:"north-reading" }
 ];
 
 // Precompute
