@@ -14,7 +14,8 @@ const TOWN_IDS = {
   "Billerica": 29563, "Wilmington": 36184, "Burlington": 36100, "Bedford": 29655,
   "Reading": 36155, "Wakefield": 36174, "Woburn": 20294, "Winchester": 36186,
   "Lexington": 36128, "Saugus": 36162, "Melrose": 10229, "Malden": 9614,
-  "Medford": 10142, "North Reading": 29768
+  "Medford": 10142, "North Reading": 29768,
+  "Arlington": 36088, "Concord": 29674
 };
 
 function fetchUrl(url, extraHeaders = {}) {
