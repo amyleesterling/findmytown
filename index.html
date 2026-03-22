@@ -609,10 +609,67 @@
   }
   @media (max-width: 900px) {
     header h1 { font-size: 1.6rem; }
+    header p { font-size: 0.85rem; }
     #map { height: 350px; }
-    .criteria-bar { font-size: 0.75rem; gap: 0.6rem; }
-    .map-controls { max-width: 170px; padding: 8px 10px; font-size: 0.75rem; }
-    .filter-panel { padding: 10px 1rem; gap: 0.8rem; }
+    .criteria-bar { font-size: 0.72rem; gap: 0.5rem; padding: 0.5rem 1rem; }
+    .map-controls {
+      max-width: 150px;
+      padding: 6px 8px;
+      font-size: 0.7rem;
+      top: 8px;
+      right: 8px;
+    }
+    .map-controls h3 { font-size: 0.65rem; margin-bottom: 4px; }
+    .map-controls label { padding: 2px 0; gap: 4px; }
+    .map-legend { padding: 6px 10px; font-size: 0.68rem; }
+    .town-info-card {
+      width: 200px;
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      bottom: 8px;
+      right: 8px;
+    }
+    .town-info-card h4 { font-size: 12px; }
+    .town-info-card .card-grid { font-size: 10px; gap: 2px 6px; }
+    .listings-status { font-size: 0.7rem; padding: 5px 10px; }
+    .filter-panel {
+      padding: 8px 1rem;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+    }
+    .filter-panel h3 { font-size: 0.7rem; }
+    .filter-group { gap: 4px; font-size: 0.75rem; }
+    .filter-group select { font-size: 0.75rem; padding: 2px 4px; }
+    .filter-count { font-size: 0.72rem; }
+    .section { padding: 1rem 0.8rem; }
+    .section h2 { font-size: 1.1rem; }
+    .charts-section { padding: 1rem 0.8rem; }
+    .charts-section h2 { font-size: 1.1rem; }
+    .chart-tabs { flex-wrap: wrap; }
+    .chart-tab { padding: 4px 10px; font-size: 0.72rem; }
+    .bar-label { width: 100px; font-size: 0.7rem; }
+    .bar-value { width: 55px; font-size: 0.7rem; }
+    table { font-size: 0.72rem; }
+    th { padding: 0.5rem 0.4rem; font-size: 0.7rem; }
+    td { padding: 0.4rem; }
+    .table-legend { font-size: 0.72rem; gap: 0.8rem; }
+  }
+  @media (max-width: 480px) {
+    header { padding: 1.5rem 1rem 1.2rem; }
+    header h1 { font-size: 1.3rem; }
+    header p { font-size: 0.78rem; }
+    #map { height: 300px; }
+    .map-controls {
+      max-width: 130px;
+      padding: 5px 7px;
+      font-size: 0.65rem;
+    }
+    .map-legend { max-width: 130px; }
+    .town-info-card { width: 170px; padding: 8px 10px; }
+    .town-info-card .card-grid { grid-template-columns: 1fr; }
+    .filter-panel { flex-direction: column; align-items: flex-start; }
+    .filter-count { margin-left: 0; }
+    .bar-chart { min-width: 300px; }
   }
 </style>
 </head>
@@ -1205,7 +1262,7 @@ function plotListings() {
     // Listing marker - small house dot
     const marker = L.circleMarker([listing.lat, listing.lon], {
       radius: 5,
-      fillColor: '#e74c3c',
+      fillColor: '#2980b9',
       fillOpacity: isInVisibleTown ? 0.8 : 0.15,
       color: 'white',
       weight: 1.5,
