@@ -1287,9 +1287,7 @@ function plotListings() {
     marker.on('mouseout', () => {
       if (town) unhighlightTownFromListing();
     });
-    marker.on('click', () => {
-      if (town) onTownSelect(town.name);
-    });
+    // No click-to-select-town — listings just show popup on click
 
     if (showListings) marker.addTo(map);
     listingMarkers.push(marker);
@@ -1399,25 +1397,16 @@ function onTownSelect(name) {
   // Update boundary styles
   buildMapMarkers();
 
-  // Dim listings not in selected town
+  // Keep all listings visible — never dim them
   listingMarkers.forEach((m, i) => {
     const l = listingsData[i];
     if (!l) return;
-    const inTown = l.town && l.town.name === highlightedTown;
     const inVisible = l.town && visibleTowns.has(l.town.name);
-    if (highlightedTown) {
-      m.setStyle({
-        fillOpacity: inTown ? 0.9 : 0.08,
-        opacity: inTown ? 1 : 0.08,
-        radius: inTown ? 7 : 4
-      });
-    } else {
-      m.setStyle({
-        fillOpacity: inVisible ? 0.8 : 0.15,
-        opacity: inVisible ? 0.9 : 0.15,
-        radius: 5
-      });
-    }
+    m.setStyle({
+      fillOpacity: inVisible ? 0.8 : 0.15,
+      opacity: inVisible ? 0.9 : 0.15,
+      radius: 5
+    });
   });
 
   updateChartHighlight();
