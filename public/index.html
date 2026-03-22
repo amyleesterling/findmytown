@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FindMyTown — North Shore MA Home Search</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --ocean: #1a5276;
+    --sand: #f8f4e8;
+    --seafoam: #48c9b0;
+    --coral: #e74c3c;
+    --driftwood: #7f8c8d;
+    --sky: #eaf2f8;
+    --gold: #f39c12;
+    --deep: #0d2137;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--sand);
+    color: #2c3e50;
+    line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, var(--ocean), var(--deep));
+    color: white;
+    padding: 2.5rem 2rem 2rem;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 2.2rem;
+    font-weight: 300;
+    letter-spacing: 1px;
+    margin-bottom: 0.3rem;
+  }
+  header h1 span { font-weight: 600; }
+  header p {
+    opacity: 0.85;
+    font-size: 1rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .criteria-bar {
+    background: var(--deep);
+    color: #ccc;
+    padding: 0.7rem 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.2rem;
+    font-size: 0.85rem;
+  }
+  .criteria-bar span { color: var(--seafoam); font-weight: 600; }
+  .highlight-keywords {
+    background: rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 0.3rem 1rem;
+    font-size: 0.8rem;
+  }
+  .highlight-keywords b { color: var(--gold); }
+
+  /* ── Map Controls ── */
+  .map-container { position: relative; }
+  #map {
+    width: 100%;
+    height: 520px;
+    border-bottom: 3px solid var(--ocean);
+  }
+  .map-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+    padding: 12px 14px;
+    font-size: 0.82rem;
+    max-width: 210px;
+  }
+  .map-controls h3 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--driftwood);
+    margin-bottom: 8px;
+  }
+  .map-controls label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .map-controls label:hover { color: var(--ocean); }
+  .map-controls input[type="radio"], .map-controls input[type="checkbox"] { accent-color: var(--ocean); }
+  .map-controls .divider {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 8px 0;
+  }
+  .map-controls .checkbox-label {
+    font-size: 0.78rem;
+    color: #666;
+  }
+
+  /* ── Listings status bar ── */
+  .listings-status {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.95);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .listings-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  .listings-status .dot.loading { background: var(--gold); }
+  .listings-status .dot.ready { background: #27ae60; animation: none; }
+  .listings-status .dot.error { background: var(--coral); animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .listings-status button {
+    background: var(--ocean);
+    color: white;
+    border: none;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .listings-status button:hover { background: var(--deep); }
+
+  /* ── Map Legend ── */
+  .map-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.95);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    color: #555;
+  }
+  .map-legend h4 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--driftwood);
+    margin-bottom: 6px;
+  }
+  .map-legend .lg-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 0;
+  }
+  .map-legend .lg-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.8);
+    flex-shrink: 0;
+  }
+  .map-legend .lg-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .map-legend .lg-gradient {
+    width: 100px;
+    height: 10px;
+    border-radius: 5px;
+  }
+
+  /* ── Listing popup ── */
+  .listing-popup {
+    font-family: system-ui;
+    min-width: 260px;
+    max-width: 300px;
+  }
+  .listing-popup img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: #eee;
+  }
+  .listing-popup .listing-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ocean);
+  }
+  .listing-popup .listing-addr {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 6px;
+  }
+  .listing-popup .listing-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 6px;
+  }
+  .listing-popup .listing-stats b { color: #333; }
+  .listing-popup .listing-town {
+    font-size: 11px;
+    color: white;
+    background: var(--ocean);
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 8px;
+  }
+  .listing-popup .listing-link {
+    display: inline-block;
+    background: var(--coral);
+    color: white;
+    padding: 5px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    width: 100%;
+  }
+  .listing-popup .listing-link:hover { background: #c0392b; }
+
+  /* ── Listing tooltip on hover ── */
+  .leaflet-tooltip.listing-tooltip {
+    background: white;
+    color: #333;
+    border: none;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    opacity: 1 !important;
+    max-width: 280px;
+    overflow: hidden;
+  }
+  .leaflet-tooltip.listing-tooltip::before {
+    display: none;
+  }
+  .listing-tip-content {
+    width: 250px;
+  }
+  .listing-tip-content img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+  }
+  .listing-tip-content .tip-body {
+    padding: 8px 10px;
+  }
+  .listing-tip-content .tip-price {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ocean);
+  }
+  .listing-tip-content .tip-addr {
+    font-size: 11px;
+    color: #777;
+    margin-bottom: 4px;
+  }
+  .listing-tip-content .tip-stats {
+    font-size: 11px;
+    color: #555;
+  }
+  .listing-tip-content .tip-town {
+    font-size: 10px;
+    background: var(--seafoam);
+    color: white;
+    padding: 1px 6px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-top: 4px;
+  }
+
+  /* ── Town tooltip ── */
+  .leaflet-tooltip.town-tooltip {
+    background: rgba(13, 33, 55, 0.92);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+  }
+  .leaflet-tooltip.town-tooltip::before {
+    border-top-color: rgba(13, 33, 55, 0.92);
+  }
+
+  /* ── Filter Panel ── */
+  .filter-panel {
+    background: white;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 14px 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.2rem;
+  }
+  .filter-panel h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--driftwood);
+    margin-right: 0.5rem;
+  }
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+  }
+  .filter-group label { color: #555; white-space: nowrap; }
+  .filter-group select {
+    font-size: 0.82rem;
+    padding: 3px 6px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: white;
+  }
+  .filter-reset {
+    background: none;
+    border: 1px solid var(--driftwood);
+    color: var(--driftwood);
+    padding: 3px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    transition: all 0.2s;
+  }
+  .filter-reset:hover { background: var(--ocean); color: white; border-color: var(--ocean); }
+  .filter-count {
+    font-size: 0.78rem;
+    color: var(--ocean);
+    font-weight: 600;
+    margin-left: auto;
+  }
+
+  /* ── Charts Section ── */
+  .charts-section {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 1rem;
+  }
+  .charts-section h2 {
+    font-size: 1.4rem;
+    color: var(--ocean);
+    margin-bottom: 1rem;
+    font-weight: 400;
+  }
+  .charts-section h2 span { font-weight: 600; }
+  .chart-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .chart-tab {
+    padding: 6px 16px;
+    border: none;
+    background: #e8e8e8;
+    color: #666;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .chart-tab.active { background: var(--ocean); color: white; }
+  .chart-tab:hover:not(.active) { background: #d0d0d0; }
+  .chart-container {
+    background: white;
+    border-radius: 0 10px 10px 10px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 600px;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 28px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .bar-row:hover { opacity: 0.85; }
+  .bar-row.dimmed { opacity: 0.3; }
+  .bar-row.highlighted { opacity: 1; }
+  .bar-label {
+    width: 140px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: right;
+    color: var(--ocean);
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar-track {
+    flex: 1;
+    height: 20px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .bar-value {
+    width: 70px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #555;
+    flex-shrink: 0;
+  }
+
+  /* ── Table ── */
+  .section {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+  .section h2 {
+    font-size: 1.4rem;
+    color: var(--ocean);
+    margin-bottom: 1rem;
+    font-weight: 400;
+  }
+  .section h2 span { font-weight: 600; }
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.82rem;
+  }
+  thead {
+    background: var(--ocean);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  th {
+    padding: 0.7rem 0.6rem;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+  th:hover { background: rgba(255,255,255,0.12); }
+  th .arrow { font-size: 0.65rem; margin-left: 3px; opacity: 0.6; }
+  th.sorted .arrow { opacity: 1; }
+  td {
+    padding: 0.6rem;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+  }
+  tr.table-row { cursor: pointer; transition: background 0.15s; }
+  tr.table-row:hover { background: var(--sky); }
+  tr.table-row.row-highlight {
+    background: #d5f5e3;
+    box-shadow: inset 4px 0 0 var(--seafoam);
+  }
+  tr.table-row.row-hidden { display: none; }
+  .town-name { font-weight: 600; color: var(--ocean); }
+  .rating-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    min-width: 28px;
+    text-align: center;
+  }
+  .r-high { background: #27ae60; color: white; }
+  .r-mid { background: #f39c12; color: white; }
+  .r-low { background: #e74c3c; color: white; }
+  .niche-grade { font-weight: 700; font-size: 0.85rem; }
+  .grade-a { color: #27ae60; }
+  .grade-b { color: #f39c12; }
+  .grade-c { color: #e74c3c; }
+  .tax-est { font-weight: 600; color: #2c3e50; }
+  .redfin-btn {
+    display: inline-block;
+    background: var(--coral);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+  .redfin-btn:hover { background: #c0392b; }
+  .table-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding: 1rem 0;
+    font-size: 0.82rem;
+    color: var(--driftwood);
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+  .sources {
+    background: var(--sky);
+    padding: 1.5rem 2rem;
+    font-size: 0.78rem;
+    color: var(--driftwood);
+    text-align: center;
+  }
+  .sources a { color: var(--ocean); }
+  footer {
+    background: var(--deep);
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.75rem;
+  }
+  @media (max-width: 900px) {
+    header h1 { font-size: 1.6rem; }
+    #map { height: 350px; }
+    .criteria-bar { font-size: 0.75rem; gap: 0.6rem; }
+    .map-controls { max-width: 170px; padding: 8px 10px; font-size: 0.75rem; }
+    .filter-panel { padding: 10px 1rem; gap: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Find My <span>Town</span></h1>
+  <p>North Shore MA home search — 21 towns from Lynn to Newburyport with live Redfin listings, school ratings, taxes, and commute times.</p>
+</header>
+
+<div class="criteria-bar">
+  <div>Beds: <span>3+</span></div>
+  <div>Baths: <span>1.5+</span></div>
+  <div>Sq Ft: <span>1,600+</span></div>
+  <div>Lot: <span>10,000+ sq ft</span></div>
+  <div class="highlight-keywords">Highlight: <b>garden</b> · <b>pond</b> · <b>multigenerational</b> · <b>greenhouse</b></div>
+</div>
+
+<!-- ── Filter Panel ── -->
+<div class="filter-panel">
+  <h3>Filter Towns</h3>
+  <div class="filter-group">
+    <label for="fNiche">Min Niche:</label>
+    <select id="fNiche">
+      <option value="0">Any</option>
+      <option value="2.3">C+</option>
+      <option value="3.0">B</option>
+      <option value="3.3">B+</option>
+      <option value="3.7">A-</option>
+      <option value="4.0">A</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="fTax">Max Tax:</label>
+    <select id="fTax">
+      <option value="99999">Any</option>
+      <option value="9000">$9,000</option>
+      <option value="10000">$10,000</option>
+      <option value="11000">$11,000</option>
+      <option value="12000">$12,000</option>
+      <option value="13000">$13,000</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="fCrane">Max to Crane:</label>
+    <select id="fCrane">
+      <option value="999">Any</option>
+      <option value="10">10 mi</option>
+      <option value="15">15 mi</option>
+      <option value="20">20 mi</option>
+      <option value="25">25 mi</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="fBoston">Max to Boston:</label>
+    <select id="fBoston">
+      <option value="999">Any</option>
+      <option value="20">20 mi</option>
+      <option value="25">25 mi</option>
+      <option value="30">30 mi</option>
+      <option value="35">35 mi</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="fSchool">Min School (Elem):</label>
+    <select id="fSchool">
+      <option value="0">Any</option>
+      <option value="5">5+</option>
+      <option value="6">6+</option>
+      <option value="7">7+</option>
+      <option value="8">8+</option>
+    </select>
+  </div>
+  <button class="filter-reset" id="filterReset">Reset All</button>
+  <div class="filter-count" id="filterCount">Showing 21 of 21 towns</div>
+</div>
+
+<!-- ── Map ── -->
+<div class="map-container">
+  <div id="map"></div>
+
+  <!-- Listing fetch status -->
+  <div class="listings-status" id="listingsStatus">
+    <div class="dot loading" id="statusDot"></div>
+    <span id="statusText">Loading listings...</span>
+    <button id="refreshBtn" style="display:none" onclick="fetchListings()">Refresh</button>
+  </div>
+
+  <div class="map-controls">
+    <h3>Town Color</h3>
+    <label><input type="radio" name="mapMode" value="niche" checked> Niche Grade</label>
+    <label><input type="radio" name="mapMode" value="tax"> Tax Rate</label>
+    <label><input type="radio" name="mapMode" value="schools"> School Rating</label>
+    <label><input type="radio" name="mapMode" value="crane"> Dist. to Crane</label>
+    <label><input type="radio" name="mapMode" value="boston"> Dist. to Boston</label>
+    <hr class="divider">
+    <label class="checkbox-label"><input type="checkbox" id="showBubbles" checked> Town bubbles</label>
+    <label class="checkbox-label"><input type="checkbox" id="showLabels" checked> Town names</label>
+    <label class="checkbox-label"><input type="checkbox" id="showListings" checked> Redfin listings</label>
+  </div>
+  <div class="map-legend" id="mapLegend"></div>
+</div>
+
+<!-- ── Charts ── -->
+<div class="charts-section">
+  <h2>Town <span>Comparison Charts</span></h2>
+  <div class="chart-tabs">
+    <button class="chart-tab active" data-chart="tax">Est. Tax ($950K)</button>
+    <button class="chart-tab" data-chart="niche">Niche Grade</button>
+    <button class="chart-tab" data-chart="schools">School Ratings</button>
+    <button class="chart-tab" data-chart="crane">Dist. to Crane</button>
+    <button class="chart-tab" data-chart="boston">Dist. to Boston</button>
+  </div>
+  <div class="chart-container" id="chartContainer"></div>
+</div>
+
+<!-- ── Table ── -->
+<div class="section">
+  <h2>Town <span>Comparison Table</span></h2>
+  <div class="table-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div> GreatSchools 7-10</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f39c12"></div> GreatSchools 4-6</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e74c3c"></div> GreatSchools 1-3</div>
+    <div class="legend-item">Tax = FY2025 rate x $950K home</div>
+    <div class="legend-item">Click a row to zoom on map</div>
+  </div>
+  <div class="table-wrap">
+    <table id="mainTable">
+      <thead>
+        <tr>
+          <th data-col="0">Town <span class="arrow">&#9660;</span></th>
+          <th data-col="1">Crane Beach <span class="arrow">&#9660;</span></th>
+          <th data-col="2">1 Financial Pl <span class="arrow">&#9660;</span></th>
+          <th data-col="3">Tax Rate <span class="arrow">&#9660;</span></th>
+          <th data-col="4">Est. Tax ($950K) <span class="arrow">&#9660;</span></th>
+          <th data-col="5">Elem <span class="arrow">&#9660;</span></th>
+          <th data-col="6">Middle <span class="arrow">&#9660;</span></th>
+          <th data-col="7">High <span class="arrow">&#9660;</span></th>
+          <th data-col="8">Niche District <span class="arrow">&#9660;</span></th>
+          <th data-col="9">Listings</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="sources">
+  <strong>Sources:</strong>
+  Tax rates: <a href="https://massachusettsalmanac.com/massachusetts-communities-tax-rate-fiscal-year-2025/" target="_blank">MA Almanac FY2025</a> ·
+  School ratings: <a href="https://www.greatschools.org" target="_blank">GreatSchools.org</a> &amp; <a href="https://www.niche.com" target="_blank">Niche.com</a> (2025-2026) ·
+  Listings: <a href="https://www.redfin.com" target="_blank">Redfin</a> (live)
+  <br>Town data gathered March 2026. School ratings are averages of public schools.
+</div>
+
+<footer>
+  FindMyTown — North Shore MA Home Search Dashboard · March 2026
+</footer>
+
+<script>
+// =============================================
+// TOWN DATA
+// =============================================
+const towns = [
+  { name:"Beverly",lat:42.5585,lon:-70.8800,craneMi:14,craneMn:22,bostonMi:25,bostonMn:38,taxRate:10.99,gsElem:7,gsMiddle:5,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"beverly" },
+  { name:"Boxford",lat:42.6610,lon:-70.9967,craneMi:16,craneMn:25,bostonMi:28,bostonMn:42,taxRate:13.45,gsElem:7,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"boxford",note:"Masconomet Regional (6-12)" },
+  { name:"Danvers",lat:42.5751,lon:-70.9301,craneMi:16,craneMn:25,bostonMi:22,bostonMn:35,taxRate:10.99,gsElem:6,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"danvers" },
+  { name:"Essex",lat:42.6320,lon:-70.7826,craneMi:7,craneMn:12,bostonMi:30,bostonMn:45,taxRate:12.99,gsElem:7,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"essex",note:"Manchester Essex Regional (6-12)" },
+  { name:"Gloucester",lat:42.6159,lon:-70.6620,craneMi:18,craneMn:30,bostonMi:33,bostonMn:50,taxRate:9.72,gsElem:5,gsMiddle:4,gsHigh:5,niche:"B",nicheSort:3.0,redfin:"gloucester" },
+  { name:"Hamilton",lat:42.6173,lon:-70.8637,craneMi:10,craneMn:18,bostonMi:28,bostonMn:42,taxRate:15.65,gsElem:7,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"hamilton",note:"Hamilton-Wenham Regional" },
+  { name:"Ipswich",lat:42.6792,lon:-70.8412,craneMi:5,craneMn:10,bostonMi:30,bostonMn:45,taxRate:11.15,gsElem:7,gsMiddle:6,gsHigh:8,niche:"A-",nicheSort:3.7,redfin:"ipswich" },
+  { name:"Lynn",lat:42.4668,lon:-70.9495,craneMi:25,craneMn:38,bostonMi:12,bostonMn:25,taxRate:10.36,gsElem:4,gsMiddle:3,gsHigh:3,niche:"C+",nicheSort:2.3,redfin:"lynn" },
+  { name:"Manchester-by-the-Sea",lat:42.5768,lon:-70.7687,craneMi:15,craneMn:25,bostonMi:30,bostonMn:45,taxRate:9.15,gsElem:8,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"manchester-by-the-sea",note:"Manchester Essex Regional (6-12)" },
+  { name:"Marblehead",lat:42.5001,lon:-70.8578,craneMi:22,craneMn:32,bostonMi:18,bostonMn:32,taxRate:9.05,gsElem:8,gsMiddle:7,gsHigh:9,niche:"A",nicheSort:4.0,redfin:"marblehead" },
+  { name:"Middleton",lat:42.5951,lon:-70.9468,craneMi:19,craneMn:30,bostonMi:22,bostonMn:35,taxRate:11.89,gsElem:7,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"middleton",note:"Masconomet Regional (6-12)" },
+  { name:"Nahant",lat:42.4265,lon:-70.9190,craneMi:28,craneMn:42,bostonMi:14,bostonMn:30,taxRate:9.15,gsElem:7,gsMiddle:5,gsHigh:5,niche:"B",nicheSort:3.0,redfin:"nahant",note:"Swampscott HS (regional)" },
+  { name:"Newbury",lat:42.7706,lon:-70.8481,craneMi:12,craneMn:20,bostonMi:35,bostonMn:50,taxRate:7.45,gsElem:6,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"newbury",note:"Triton Regional (6-12)" },
+  { name:"Newburyport",lat:42.8126,lon:-70.8773,craneMi:16,craneMn:25,bostonMi:38,bostonMn:55,taxRate:9.58,gsElem:7,gsMiddle:6,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"newburyport" },
+  { name:"Peabody",lat:42.5279,lon:-70.9286,craneMi:20,craneMn:30,bostonMi:20,bostonMn:32,taxRate:9.26,gsElem:5,gsMiddle:5,gsHigh:5,niche:"B",nicheSort:3.0,redfin:"peabody" },
+  { name:"Rockport",lat:42.6559,lon:-70.6206,craneMi:22,craneMn:35,bostonMi:37,bostonMn:55,taxRate:8.76,gsElem:7,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"rockport" },
+  { name:"Rowley",lat:42.7168,lon:-70.8787,craneMi:8,craneMn:15,bostonMi:33,bostonMn:48,taxRate:11.77,gsElem:6,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"rowley",note:"Triton Regional (6-12)" },
+  { name:"Salem",lat:42.5195,lon:-70.8967,craneMi:18,craneMn:28,bostonMi:16,bostonMn:30,taxRate:11.34,gsElem:5,gsMiddle:4,gsHigh:5,niche:"B",nicheSort:3.0,redfin:"salem" },
+  { name:"Swampscott",lat:42.4732,lon:-70.9176,craneMi:23,craneMn:35,bostonMi:14,bostonMn:28,taxRate:11.47,gsElem:7,gsMiddle:6,gsHigh:6,niche:"B+",nicheSort:3.3,redfin:"swampscott" },
+  { name:"Topsfield",lat:42.6376,lon:-70.9495,craneMi:14,craneMn:22,bostonMi:25,bostonMn:38,taxRate:14.99,gsElem:8,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"topsfield",note:"Masconomet Regional (6-12)" },
+  { name:"Wenham",lat:42.6037,lon:-70.8737,craneMi:12,craneMn:20,bostonMi:27,bostonMn:40,taxRate:15.54,gsElem:7,gsMiddle:7,gsHigh:7,niche:"A-",nicheSort:3.7,redfin:"wenham",note:"Hamilton-Wenham Regional" }
+];
+
+// Precompute
+towns.forEach(t => {
+  t.estTax = Math.round(t.taxRate * 950);
+  t.avgSchool = ((t.gsElem + t.gsMiddle + t.gsHigh) / 3);
+  t.redfinUrl = `https://www.redfin.com/city/${encodeURIComponent(t.redfin)}/MA/filter/min-beds=3,min-baths=1.5,min-sqft=1600,min-lot-size=0.23-acre,include=comingsoon`;
+});
+
+let visibleTowns = new Set(towns.map(t => t.name));
+let highlightedTown = null;
+let listingsData = [];
+let listingMarkers = [];
+
+// =============================================
+// HELPERS
+// =============================================
+function ratingPill(n) {
+  const cls = n >= 7 ? 'r-high' : n >= 4 ? 'r-mid' : 'r-low';
+  return `<span class="rating-pill ${cls}">${n}/10</span>`;
+}
+function nicheClass(grade) {
+  if (grade.startsWith('A')) return 'grade-a';
+  if (grade.startsWith('B')) return 'grade-b';
+  return 'grade-c';
+}
+function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
+function lerpColor(c1, c2, t) {
+  return `rgb(${Math.round(lerp(c1[0],c2[0],t))},${Math.round(lerp(c1[1],c2[1],t))},${Math.round(lerp(c1[2],c2[2],t))})`;
+}
+function colorForValue(val, min, max, invert) {
+  const t = (val - min) / (max - min || 1);
+  const norm = invert ? 1 - t : t;
+  if (norm < 0.5) return lerpColor([220,50,50], [240,180,30], norm * 2);
+  return lerpColor([240,180,30], [39,174,96], (norm - 0.5) * 2);
+}
+
+// Find which town a listing belongs to
+// First try matching by city name, then fall back to nearest town center
+function findTownForListing(lat, lon, cityName) {
+  // Normalize city name for matching
+  const norm = (cityName || '').toLowerCase().replace(/[^a-z]/g, '');
+  for (const t of towns) {
+    const tn = t.name.toLowerCase().replace(/[^a-z]/g, '');
+    if (norm === tn || norm.includes(tn) || tn.includes(norm)) return t;
+  }
+  // Special cases
+  if (norm.includes('hamilton') || norm.includes('southhamilton')) return towns.find(t => t.name === 'Hamilton');
+  if (norm.includes('manchester')) return towns.find(t => t.name === 'Manchester-by-the-Sea');
+  if (norm.includes('bradford')) return towns.find(t => t.name === 'Haverhill') || null;
+
+  // Fall back to nearest town center
+  let best = null, bestDist = Infinity;
+  for (const t of towns) {
+    const d = Math.sqrt((t.lat - lat) ** 2 + (t.lon - lon) ** 2);
+    if (d < bestDist) { bestDist = d; best = t; }
+  }
+  return best;
+}
+
+function formatPrice(n) {
+  if (!n) return '$0';
+  if (n >= 1000000) return `$${(n / 1000000).toFixed(2)}M`;
+  return `$${(n / 1000).toFixed(0)}K`;
+}
+
+// =============================================
+// TABLE
+// =============================================
+const tbody = document.getElementById('tableBody');
+const tableRows = {};
+
+towns.forEach(t => {
+  const tr = document.createElement('tr');
+  tr.className = 'table-row';
+  tr.dataset.town = t.name;
+  tr.innerHTML = `
+    <td class="town-name">${t.name}${t.note ? `<br><span style="font-weight:400;font-size:0.7rem;color:#888">${t.note}</span>` : ''}</td>
+    <td>${t.craneMi} mi / ${t.craneMn} min</td>
+    <td>${t.bostonMi} mi / ${t.bostonMn} min</td>
+    <td>$${t.taxRate.toFixed(2)}</td>
+    <td class="tax-est">$${t.estTax.toLocaleString()}</td>
+    <td>${ratingPill(t.gsElem)}</td>
+    <td>${ratingPill(t.gsMiddle)}</td>
+    <td>${ratingPill(t.gsHigh)}</td>
+    <td><span class="niche-grade ${nicheClass(t.niche)}">${t.niche}</span></td>
+    <td><a class="redfin-btn" href="${t.redfinUrl}" target="_blank" onclick="event.stopPropagation()">Redfin &#8599;</a></td>
+  `;
+  tr.addEventListener('click', () => onTownSelect(t.name));
+  tbody.appendChild(tr);
+  tableRows[t.name] = tr;
+});
+
+// Table sorting
+let sortCol = -1, sortAsc = true;
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = parseInt(th.dataset.col);
+    if (col === 9) return;
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    document.querySelectorAll('th').forEach(h => h.classList.remove('sorted'));
+    th.classList.add('sorted');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a, b) => {
+      let va = getCellVal(a, col), vb = getCellVal(b, col);
+      if (typeof va === 'number' && typeof vb === 'number')
+        return sortAsc ? va - vb : vb - va;
+      return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  });
+});
+
+function getCellVal(row, col) {
+  const text = row.cells[col].textContent.trim();
+  if (col >= 1 && col <= 2) return parseInt(text);
+  if (col === 3) return parseFloat(text.replace('$', ''));
+  if (col === 4) return parseInt(text.replace(/[$,]/g, ''));
+  if (col >= 5 && col <= 7) return parseInt(text);
+  if (col === 8) {
+    const map = {'A+':4.3,'A':4,'A-':3.7,'B+':3.3,'B':3,'B-':2.7,'C+':2.3,'C':2};
+    return map[text] || 0;
+  }
+  return text;
+}
+
+// =============================================
+// MAP
+// =============================================
+const map = L.map('map', { zoomSnap: 0.25 }).setView([42.58, -70.85], 10);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+  maxZoom: 18
+}).addTo(map);
+
+// Landmarks
+L.marker([42.6854, -70.7562], {
+  icon: L.divIcon({
+    html: '<div style="background:#e74c3c;color:white;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:bold;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);">&#127958; Crane Beach</div>',
+    className: '', iconAnchor: [60, 15]
+  })
+}).addTo(map);
+
+L.marker([42.3519, -71.0552], {
+  icon: L.divIcon({
+    html: '<div style="background:#2c3e50;color:white;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:bold;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);">&#127970; 1 Financial Pl</div>',
+    className: '', iconAnchor: [60, 15]
+  })
+}).addTo(map);
+
+// Town map layers
+const townMarkers = {};
+const townBubbles = {};
+const townLabels = {};
+let currentMode = 'niche';
+
+function getMarkerColorAndSize(t, mode) {
+  let color, size, tooltip;
+  switch (mode) {
+    case 'niche':
+      color = t.nicheSort >= 3.7 ? '#27ae60' : t.nicheSort >= 3.0 ? '#f39c12' : '#e74c3c';
+      size = 10 + t.nicheSort * 6;
+      tooltip = `${t.name}: ${t.niche}`;
+      break;
+    case 'tax':
+      color = colorForValue(t.estTax, 7000, 15000, true);
+      size = 10 + (t.estTax - 7000) / 8000 * 20;
+      tooltip = `${t.name}: $${t.estTax.toLocaleString()}/yr`;
+      break;
+    case 'schools':
+      color = colorForValue(t.avgSchool, 3, 9, false);
+      size = 10 + t.avgSchool * 3;
+      tooltip = `${t.name}: avg ${t.avgSchool.toFixed(1)}/10`;
+      break;
+    case 'crane':
+      color = colorForValue(t.craneMi, 5, 28, true);
+      size = 10 + (28 - t.craneMi) * 0.8;
+      tooltip = `${t.name}: ${t.craneMi} mi to Crane`;
+      break;
+    case 'boston':
+      color = colorForValue(t.bostonMi, 12, 38, true);
+      size = 10 + (38 - t.bostonMi) * 0.8;
+      tooltip = `${t.name}: ${t.bostonMi} mi to Boston`;
+      break;
+  }
+  return { color, size, tooltip };
+}
+
+function buildMapMarkers() {
+  Object.values(townMarkers).forEach(m => map.removeLayer(m));
+  Object.values(townBubbles).forEach(m => map.removeLayer(m));
+  Object.values(townLabels).forEach(m => map.removeLayer(m));
+
+  const showBubbles = document.getElementById('showBubbles').checked;
+  const showLabelsOpt = document.getElementById('showLabels').checked;
+
+  towns.forEach(t => {
+    const { color, size, tooltip } = getMarkerColorAndSize(t, currentMode);
+    const isVisible = visibleTowns.has(t.name);
+    const opacity = isVisible ? 0.85 : 0.15;
+
+    if (showBubbles) {
+      townBubbles[t.name] = L.circleMarker([t.lat, t.lon], {
+        radius: size, fillColor: color, fillOpacity: opacity * 0.35,
+        color: color, weight: 2, opacity: opacity * 0.6
+      }).addTo(map);
+    }
+
+    const dot = L.circleMarker([t.lat, t.lon], {
+      radius: 7, fillColor: color, fillOpacity: opacity,
+      color: 'white', weight: 2, opacity: opacity
+    }).addTo(map);
+    dot.bindTooltip(tooltip, { className: 'town-tooltip', direction: 'top', offset: [0, -10] });
+    dot.bindPopup(buildTownPopup(t));
+    dot.on('click', () => onTownSelect(t.name));
+    townMarkers[t.name] = dot;
+
+    if (showLabelsOpt) {
+      townLabels[t.name] = L.marker([t.lat, t.lon], {
+        icon: L.divIcon({
+          html: `<div style="font-size:10px;font-weight:600;color:${color};text-shadow:1px 1px 2px white,-1px -1px 2px white,1px -1px 2px white,-1px 1px 2px white;white-space:nowrap;opacity:${opacity};">${t.name}</div>`,
+          className: '', iconAnchor: [-10, 5]
+        }),
+        interactive: false
+      }).addTo(map);
+    }
+  });
+
+  updateMapLegend();
+}
+
+function buildTownPopup(t) {
+  return `
+    <div style="font-family:system-ui;min-width:240px;">
+      <strong style="font-size:15px;color:#1a5276;">${t.name}</strong>
+      ${t.note ? `<br><span style="font-size:11px;color:#888;">${t.note}</span>` : ''}
+      <hr style="margin:6px 0;border:none;border-top:1px solid #eee;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;">
+        <div>&#127958; Crane: <b>${t.craneMi} mi</b> (${t.craneMn} min)</div>
+        <div>&#127970; Boston: <b>${t.bostonMi} mi</b> (${t.bostonMn} min)</div>
+        <div>&#128176; Tax Rate: <b>$${t.taxRate.toFixed(2)}</b></div>
+        <div>&#127968; Est Tax: <b>$${t.estTax.toLocaleString()}</b>/yr</div>
+        <div>&#128218; Elem: <b>${t.gsElem}/10</b></div>
+        <div>&#128218; Middle: <b>${t.gsMiddle}/10</b></div>
+        <div>&#128218; High: <b>${t.gsHigh}/10</b></div>
+        <div>&#127891; Niche: <b>${t.niche}</b></div>
+      </div>
+      <div style="margin-top:10px;text-align:center;">
+        <a href="${t.redfinUrl}" target="_blank" style="background:#e74c3c;color:white;padding:5px 16px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600;display:inline-block;">Search Redfin &#8599;</a>
+      </div>
+    </div>
+  `;
+}
+
+function updateMapLegend() {
+  const el = document.getElementById('mapLegend');
+  const labels = {
+    niche: 'Niche Grade', tax: 'Est. Annual Tax', schools: 'Avg School Rating',
+    crane: 'Distance to Crane Beach', boston: 'Distance to 1 Financial Pl'
+  };
+  if (currentMode === 'niche') {
+    el.innerHTML = `<h4>${labels[currentMode]}</h4>
+      <div class="lg-row"><div class="lg-dot" style="background:#27ae60"></div> A- or higher</div>
+      <div class="lg-row"><div class="lg-dot" style="background:#f39c12"></div> B to B+</div>
+      <div class="lg-row"><div class="lg-dot" style="background:#e74c3c"></div> C+ or lower</div>`;
+  } else {
+    const inverted = ['tax','crane','boston'].includes(currentMode);
+    el.innerHTML = `<h4>${labels[currentMode]}</h4>
+      <div class="lg-bar">
+        <span style="font-size:10px">${inverted ? 'Best' : 'Lowest'}</span>
+        <div class="lg-gradient" style="width:100px;height:10px;border-radius:5px;background:linear-gradient(to right, #27ae60, #f0b41e, #dc3232)"></div>
+        <span style="font-size:10px">${inverted ? 'Highest' : 'Best'}</span>
+      </div>
+      <div style="font-size:10px;margin-top:3px;color:#999;">Bubble size = relative magnitude</div>`;
+  }
+}
+
+document.querySelectorAll('input[name="mapMode"]').forEach(r => {
+  r.addEventListener('change', e => { currentMode = e.target.value; buildMapMarkers(); });
+});
+document.getElementById('showBubbles').addEventListener('change', buildMapMarkers);
+document.getElementById('showLabels').addEventListener('change', buildMapMarkers);
+document.getElementById('showListings').addEventListener('change', () => {
+  const show = document.getElementById('showListings').checked;
+  listingMarkers.forEach(m => show ? m.addTo(map) : map.removeLayer(m));
+});
+
+buildMapMarkers();
+
+// =============================================
+// LISTINGS LAYER (from proxy server)
+// =============================================
+async function fetchListings() {
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  statusDot.className = 'dot loading';
+  statusText.textContent = 'Fetching Redfin listings...';
+  refreshBtn.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/listings');
+    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+    const data = await resp.json();
+
+    if (data.error) throw new Error(data.error);
+
+    listingsData = data.listings || [];
+
+    // Match each listing to a town
+    listingsData.forEach(l => {
+      l.town = findTownForListing(l.lat, l.lon, l.city);
+    });
+
+    plotListings();
+
+    if (listingsData.length === 0 && (data.loading || data.stale)) {
+      // Server is still fetching — poll again
+      statusDot.className = 'dot loading';
+      statusText.textContent = 'Server fetching listings...';
+      setTimeout(fetchListings, 3000);
+      return;
+    }
+
+    statusDot.className = 'dot ready';
+    statusText.textContent = `${listingsData.length} listings loaded`;
+    refreshBtn.style.display = 'inline-block';
+
+    // Start polling for photos (server scrapes in background)
+    if (photoPollingInterval) clearInterval(photoPollingInterval);
+    photoPollingInterval = setInterval(pollPhotos, 4000);
+    setTimeout(pollPhotos, 2000);
+
+  } catch (err) {
+    console.error('Failed to fetch listings:', err);
+    statusDot.className = 'dot error';
+    statusText.textContent = `Error: ${err.message}`;
+    refreshBtn.style.display = 'inline-block';
+  }
+}
+
+function plotListings() {
+  // Clear old markers
+  listingMarkers.forEach(m => map.removeLayer(m));
+  listingMarkers = [];
+
+  const showListings = document.getElementById('showListings').checked;
+
+  listingsData.forEach(listing => {
+    if (!listing.lat || !listing.lon) return;
+
+    const town = listing.town;
+    const townName = town ? town.name : 'Unknown';
+    const isInVisibleTown = town && visibleTowns.has(town.name);
+
+    // Listing marker - small house dot
+    const marker = L.circleMarker([listing.lat, listing.lon], {
+      radius: 5,
+      fillColor: '#e74c3c',
+      fillOpacity: isInVisibleTown ? 0.8 : 0.15,
+      color: 'white',
+      weight: 1.5,
+      opacity: isInVisibleTown ? 0.9 : 0.15,
+      pane: 'markerPane'
+    });
+
+    // Dynamic tooltip — rebuilds on hover to pick up lazy-loaded photos
+    marker.bindTooltip('', {
+      className: 'listing-tooltip',
+      direction: 'top',
+      offset: [0, -8],
+      opacity: 1,
+      sticky: false
+    });
+
+    marker.on('tooltipopen', () => {
+      const photoHtml = listing.photoUrl
+        ? `<img src="${listing.photoUrl}" onerror="this.parentElement.querySelector('.tip-nophoto').style.display='block';this.style.display='none'" alt="">`
+        : '';
+      const noPhotoHtml = listing.photoUrl ? '<div class="tip-nophoto" style="display:none">' : '<div class="tip-nophoto">';
+
+      marker.setTooltipContent(`<div class="listing-tip-content">
+        ${photoHtml}
+        ${noPhotoHtml}<div style="height:50px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#999;">Loading photo...</div></div>
+        <div class="tip-body">
+          <div class="tip-price">${listing.priceFormatted || formatPrice(listing.price)}</div>
+          <div class="tip-addr">${listing.address}, ${listing.city}</div>
+          <div class="tip-stats">${listing.beds} bd · ${listing.baths} ba · ${listing.sqft ? listing.sqft.toLocaleString() + ' sqft' : ''}</div>
+          <div class="tip-town">${townName}</div>
+        </div>
+      </div>`);
+
+      // If no photo yet, try to fetch on-demand
+      if (!listing.photoUrl && listing.redfinUrl) {
+        fetch(`/api/photo/${listing.id}?url=${encodeURIComponent(listing.redfinUrl)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.photoUrl) {
+              listing.photoUrl = data.photoUrl;
+              // Update tooltip if still open
+              if (marker.isTooltipOpen()) {
+                marker.setTooltipContent(marker.getTooltip().getContent().replace(
+                  /<div class="tip-nophoto">.*?<\/div><\/div>/s,
+                  `<img src="${data.photoUrl}" onerror="this.style.display='none'" alt="" style="width:100%;height:120px;object-fit:cover;display:block;">`
+                ));
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    });
+
+    // Click popup with full details
+    const popupHtml = `<div class="listing-popup">
+      ${listing.photoUrl ? `<img src="${listing.photoUrl}" onerror="this.style.display='none'" alt="">` : ''}
+      <div class="listing-price">${listing.priceFormatted || formatPrice(listing.price)}</div>
+      <div class="listing-addr">${listing.address}<br>${listing.city}, ${listing.state} ${listing.zip}</div>
+      <div class="listing-stats">
+        <span><b>${listing.beds}</b> beds</span>
+        <span><b>${listing.baths}</b> baths</span>
+        ${listing.sqft ? `<span><b>${listing.sqft.toLocaleString()}</b> sqft</span>` : ''}
+        ${listing.yearBuilt ? `<span>Built <b>${listing.yearBuilt}</b></span>` : ''}
+      </div>
+      <div class="listing-town">${townName}${town ? ` · ${town.niche} · $${town.estTax.toLocaleString()}/yr tax` : ''}</div>
+      ${listing.redfinUrl ? `<a class="listing-link" href="${listing.redfinUrl}" target="_blank">View on Redfin &#8599;</a>` : ''}
+    </div>`;
+
+    marker.bindPopup(popupHtml, { maxWidth: 300 });
+
+    // On hover, highlight the town in table/chart
+    marker.on('mouseover', () => {
+      if (town) highlightTownFromListing(town.name);
+    });
+    marker.on('mouseout', () => {
+      if (town) unhighlightTownFromListing();
+    });
+    marker.on('click', () => {
+      if (town) onTownSelect(town.name);
+    });
+
+    if (showListings) marker.addTo(map);
+    listingMarkers.push(marker);
+  });
+}
+
+// Temporary highlight (on listing hover) — lighter than full select
+function highlightTownFromListing(townName) {
+  // Highlight table row
+  Object.entries(tableRows).forEach(([n, tr]) => {
+    if (n === townName) {
+      tr.style.background = '#d5f5e3';
+      tr.style.boxShadow = 'inset 4px 0 0 #48c9b0';
+    }
+  });
+  // Highlight chart bar
+  document.querySelectorAll('.bar-row').forEach(row => {
+    if (row.dataset.town === townName) {
+      row.style.background = 'rgba(72, 201, 176, 0.15)';
+      row.style.borderRadius = '4px';
+    }
+  });
+  // Pulse the town marker
+  if (townMarkers[townName]) {
+    townMarkers[townName].setStyle({ weight: 4, color: '#48c9b0' });
+  }
+}
+
+function unhighlightTownFromListing() {
+  // Remove temporary highlights (but keep permanent selection)
+  Object.entries(tableRows).forEach(([n, tr]) => {
+    if (n !== highlightedTown) {
+      tr.style.background = '';
+      tr.style.boxShadow = '';
+    }
+  });
+  document.querySelectorAll('.bar-row').forEach(row => {
+    row.style.background = '';
+    row.style.borderRadius = '';
+  });
+  // Reset town markers
+  Object.entries(townMarkers).forEach(([name, m]) => {
+    m.setStyle({ weight: 2, color: 'white' });
+  });
+}
+
+// =============================================
+// TOWN SELECTION (bidirectional)
+// =============================================
+function onTownSelect(name) {
+  if (highlightedTown === name) {
+    highlightedTown = null;
+  } else {
+    highlightedTown = name;
+  }
+
+  Object.entries(tableRows).forEach(([n, tr]) => {
+    tr.classList.toggle('row-highlight', n === highlightedTown);
+    tr.style.background = '';
+    tr.style.boxShadow = '';
+  });
+
+  if (highlightedTown) {
+    const t = towns.find(t => t.name === highlightedTown);
+    if (t) {
+      map.flyTo([t.lat, t.lon], 12, { duration: 0.8 });
+      townMarkers[t.name].openPopup();
+    }
+    const row = tableRows[highlightedTown];
+    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    map.flyTo([42.58, -70.85], 10, { duration: 0.8 });
+  }
+
+  // Dim listings not in selected town
+  listingMarkers.forEach((m, i) => {
+    const l = listingsData[i];
+    if (!l) return;
+    const inTown = l.town && l.town.name === highlightedTown;
+    const inVisible = l.town && visibleTowns.has(l.town.name);
+    if (highlightedTown) {
+      m.setStyle({
+        fillOpacity: inTown ? 0.9 : 0.08,
+        opacity: inTown ? 1 : 0.08,
+        radius: inTown ? 7 : 4
+      });
+    } else {
+      m.setStyle({
+        fillOpacity: inVisible ? 0.8 : 0.15,
+        opacity: inVisible ? 0.9 : 0.15,
+        radius: 5
+      });
+    }
+  });
+
+  updateChartHighlight();
+}
+
+// =============================================
+// FILTERS
+// =============================================
+const filterEls = {
+  niche: document.getElementById('fNiche'),
+  tax: document.getElementById('fTax'),
+  crane: document.getElementById('fCrane'),
+  boston: document.getElementById('fBoston'),
+  school: document.getElementById('fSchool')
+};
+
+function applyFilters() {
+  const fNiche = parseFloat(filterEls.niche.value);
+  const fTax = parseInt(filterEls.tax.value);
+  const fCrane = parseInt(filterEls.crane.value);
+  const fBoston = parseInt(filterEls.boston.value);
+  const fSchool = parseInt(filterEls.school.value);
+
+  visibleTowns = new Set();
+  towns.forEach(t => {
+    const pass = t.nicheSort >= fNiche && t.estTax <= fTax &&
+                 t.craneMi <= fCrane && t.bostonMi <= fBoston && t.gsElem >= fSchool;
+    if (pass) visibleTowns.add(t.name);
+    tableRows[t.name].classList.toggle('row-hidden', !pass);
+  });
+
+  document.getElementById('filterCount').textContent =
+    `Showing ${visibleTowns.size} of ${towns.length} towns`;
+
+  buildMapMarkers();
+  buildChart(currentChart);
+
+  // Update listing visibility
+  listingMarkers.forEach((m, i) => {
+    const l = listingsData[i];
+    if (!l) return;
+    const inVisible = l.town && visibleTowns.has(l.town.name);
+    m.setStyle({
+      fillOpacity: inVisible ? 0.8 : 0.15,
+      opacity: inVisible ? 0.9 : 0.15
+    });
+  });
+}
+
+Object.values(filterEls).forEach(el => el.addEventListener('change', applyFilters));
+document.getElementById('filterReset').addEventListener('click', () => {
+  Object.values(filterEls).forEach(el => el.selectedIndex = 0);
+  applyFilters();
+});
+
+// =============================================
+// CHARTS
+// =============================================
+let currentChart = 'tax';
+
+function getChartData(type) {
+  const visible = towns.filter(t => visibleTowns.has(t.name));
+  switch (type) {
+    case 'tax':
+      return visible.map(t => ({ name: t.name, value: t.estTax, label: `$${t.estTax.toLocaleString()}`, color: colorForValue(t.estTax, 7000, 15000, true) })).sort((a,b) => a.value - b.value);
+    case 'niche':
+      return visible.map(t => ({ name: t.name, value: t.nicheSort, label: t.niche, color: t.nicheSort >= 3.7 ? '#27ae60' : t.nicheSort >= 3.0 ? '#f39c12' : '#e74c3c' })).sort((a,b) => b.value - a.value);
+    case 'schools':
+      return visible.map(t => ({ name: t.name, value: t.avgSchool, label: t.avgSchool.toFixed(1) + '/10', color: colorForValue(t.avgSchool, 3, 9, false) })).sort((a,b) => b.value - a.value);
+    case 'crane':
+      return visible.map(t => ({ name: t.name, value: t.craneMi, label: `${t.craneMi} mi`, color: colorForValue(t.craneMi, 5, 28, true) })).sort((a,b) => a.value - b.value);
+    case 'boston':
+      return visible.map(t => ({ name: t.name, value: t.bostonMi, label: `${t.bostonMi} mi`, color: colorForValue(t.bostonMi, 12, 38, true) })).sort((a,b) => a.value - b.value);
+  }
+}
+
+function buildChart(type) {
+  currentChart = type;
+  const data = getChartData(type);
+  const maxVal = Math.max(...data.map(d => d.value));
+  const container = document.getElementById('chartContainer');
+
+  container.innerHTML = `<div class="bar-chart">${data.map(d => `
+    <div class="bar-row${highlightedTown === d.name ? ' highlighted' : ''}${highlightedTown && highlightedTown !== d.name ? ' dimmed' : ''}" data-town="${d.name}">
+      <div class="bar-label">${d.name}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(d.value / maxVal * 100).toFixed(1)}%;background:${d.color};"></div>
+      </div>
+      <div class="bar-value">${d.label}</div>
+    </div>
+  `).join('')}</div>`;
+
+  container.querySelectorAll('.bar-row').forEach(row => {
+    row.addEventListener('click', () => onTownSelect(row.dataset.town));
+  });
+}
+
+function updateChartHighlight() {
+  document.querySelectorAll('.bar-row').forEach(row => {
+    const isTown = row.dataset.town === highlightedTown;
+    row.classList.toggle('highlighted', isTown);
+    row.classList.toggle('dimmed', highlightedTown && !isTown);
+  });
+}
+
+document.querySelectorAll('.chart-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    buildChart(tab.dataset.chart);
+  });
+});
+
+buildChart('tax');
+
+// =============================================
+// PHOTO POLLING — fetch cached photos periodically
+// =============================================
+let photoPollingInterval = null;
+
+async function pollPhotos() {
+  try {
+    const resp = await fetch('/api/photos');
+    const data = await resp.json();
+    if (!data.photos) return;
+
+    let updated = false;
+    listingsData.forEach(l => {
+      const cached = data.photos[String(l.id)];
+      if (cached && !l.photoUrl) {
+        l.photoUrl = cached;
+        updated = true;
+      }
+    });
+
+    if (updated) {
+      document.getElementById('statusText').textContent =
+        `${listingsData.length} listings · ${data.count} photos`;
+    }
+
+    // Stop polling when all photos are cached
+    if (data.count >= listingsData.length && photoPollingInterval) {
+      clearInterval(photoPollingInterval);
+      photoPollingInterval = null;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// =============================================
+// INIT — fetch listings on load
+// =============================================
+fetchListings();
+</script>
+</body>
+</html>

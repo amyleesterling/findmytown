@@ -1,0 +1,12 @@
+{
+  "name": "findmytown",
+  "version": "1.0.0",
+  "description": "North Shore MA Home Search Dashboard with interactive map and live Redfin listings",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
