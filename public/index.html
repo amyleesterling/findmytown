@@ -988,13 +988,38 @@ const heartedIds = new Set(JSON.parse(localStorage.getItem('heartedListings') ||
 function saveVisited() { localStorage.setItem('visitedListings', JSON.stringify([...visitedIds])); }
 function saveHearted() { localStorage.setItem('heartedListings', JSON.stringify([...heartedIds])); }
 
+// Save full listing data for favorites so they persist even if listing drops from feed
+const savedFavorites = JSON.parse(localStorage.getItem('savedFavorites') || '{}');
+function saveFavoriteData(listing) {
+  savedFavorites[listing.id] = {
+    id: listing.id, address: listing.address, city: listing.city,
+    state: listing.state, zip: listing.zip, lat: listing.lat, lon: listing.lon,
+    price: listing.price, priceFormatted: listing.priceFormatted,
+    beds: listing.beds, baths: listing.baths, sqft: listing.sqft,
+    lotSqft: listing.lotSqft, redfinUrl: listing.redfinUrl,
+    yearBuilt: listing.yearBuilt, photoUrl: listing.photoUrl,
+    description: listing.description, townMatch: listing.townMatch,
+    savedAt: new Date().toISOString()
+  };
+  localStorage.setItem('savedFavorites', JSON.stringify(savedFavorites));
+}
+function removeFavoriteData(id) {
+  delete savedFavorites[id];
+  localStorage.setItem('savedFavorites', JSON.stringify(savedFavorites));
+}
+
 function toggleHeart(id) {
-  if (heartedIds.has(id)) heartedIds.delete(id);
-  else heartedIds.add(id);
+  if (heartedIds.has(id)) {
+    heartedIds.delete(id);
+    removeFavoriteData(id);
+  } else {
+    heartedIds.add(id);
+    // Find listing data from current feed or saved
+    const listing = listingsData.find(l => l.id === id);
+    if (listing) saveFavoriteData(listing);
+  }
   saveHearted();
-  // Update marker color
   updateMarkerStyle(id);
-  // Update popup heart button text
   const btn = document.querySelector('.heart-btn-' + id);
   if (btn) btn.textContent = heartedIds.has(id) ? '❤️ Loved' : '🤍 Love';
 }
@@ -1789,10 +1814,24 @@ document.querySelectorAll('.main-tab').forEach(tab => {
 function renderFavorites() {
   const grid = document.getElementById('favoritesGrid');
   const empty = document.getElementById('favoritesEmpty');
-  const favs = listingsData.filter(l => heartedIds.has(l.id));
+  // Merge current feed listings with saved favorites (for off-market ones)
+  const favs = [];
+  heartedIds.forEach(id => {
+    const fromFeed = listingsData.find(l => l.id === id);
+    const fromSaved = savedFavorites[id];
+    if (fromFeed) {
+      fromFeed.offMarket = false;
+      favs.push(fromFeed);
+    } else if (fromSaved) {
+      fromSaved.offMarket = true;
+      fromSaved.town = findTownForListing(fromSaved.lat, fromSaved.lon, fromSaved.city);
+      favs.push(fromSaved);
+    }
+  });
 
   document.getElementById('favCount').textContent = favs.length;
-  document.getElementById('favSummary').textContent = `${favs.length} saved listings`;
+  const offCount = favs.filter(l => l.offMarket).length;
+  document.getElementById('favSummary').textContent = `${favs.length} saved listings${offCount ? ` (${offCount} off-market)` : ''}`;
 
   if (favs.length === 0) {
     grid.style.display = 'none';
@@ -1809,7 +1848,7 @@ function renderFavorites() {
     return `<div class="fav-card">
       ${l.photoUrl ? `<img src="${l.photoUrl}" onerror="this.style.display='none'" alt="">` : '<div style="height:170px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;">No photo</div>'}
       <div class="fav-body">
-        <div class="fav-price">${l.priceFormatted || formatPrice(l.price)}</div>
+        <div class="fav-price">${l.priceFormatted || formatPrice(l.price)}${l.offMarket ? ' <span style="font-size:11px;color:#e74c3c;font-weight:400;">OFF MARKET</span>' : ''}</div>
         <div class="fav-addr">${l.address}, ${l.city} ${l.state} ${l.zip}</div>
         <div class="fav-stats">${l.beds} bd · ${l.baths} ba · ${l.sqft ? l.sqft.toLocaleString() + ' sqft' : ''} ${l.lotSqft ? ' · ' + (l.lotSqft / 43560).toFixed(2) + ' acres' : ''}</div>
         <div class="fav-town">${townName}${town ? ' · ' + town.niche + ' · SAT ' + town.sat : ''}</div>
