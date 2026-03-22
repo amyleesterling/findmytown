@@ -3,7 +3,7 @@ const https = require('https');
 const path = require('path');
 
 const app = express();
-const PORT = 3458;
+const PORT = process.env.PORT || 3458;
 
 // Redfin city IDs for all 21 North Shore towns
 const TOWN_IDS = {
