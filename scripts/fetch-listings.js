@@ -143,9 +143,13 @@ async function main() {
     fetchedAt: new Date().toISOString(),
   };
 
-  const outPath = path.join(__dirname, '..', 'public', 'listings.json');
-  fs.writeFileSync(outPath, JSON.stringify(output));
-  console.log(`Saved to ${outPath} (${(JSON.stringify(output).length / 1024).toFixed(0)} KB)`);
+  const json = JSON.stringify(output);
+  // Save to both public/ (for local dev) and root (for GitHub Pages)
+  const publicPath = path.join(__dirname, '..', 'public', 'listings.json');
+  const rootPath = path.join(__dirname, '..', 'listings.json');
+  fs.writeFileSync(publicPath, json);
+  fs.writeFileSync(rootPath, json);
+  console.log(`Saved to ${rootPath} (${(json.length / 1024).toFixed(0)} KB)`);
 }
 
 main().catch(err => {
