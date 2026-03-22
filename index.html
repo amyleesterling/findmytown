@@ -1070,7 +1070,7 @@ function getTownTooltip(t, mode) {
 }
 
 // Load boundaries from static file, then build map
-fetch('/boundaries.json')
+fetch('boundaries.json')
   .then(r => r.json())
   .then(geo => { boundaryGeoJSON = geo; buildMapMarkers(); })
   .catch(err => { console.warn('No boundaries file, using dots:', err); buildMapMarkers(); });
