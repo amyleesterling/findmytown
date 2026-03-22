@@ -1152,7 +1152,7 @@ async function fetchListings() {
   refreshBtn.style.display = 'none';
 
   try {
-    const resp = await fetch('/api/listings');
+    const resp = await fetch('listings.json');
     if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
     const data = await resp.json();
 
@@ -1175,14 +1175,10 @@ async function fetchListings() {
       return;
     }
 
+    const fetchDate = data.fetchedAt ? new Date(data.fetchedAt).toLocaleDateString() : '';
     statusDot.className = 'dot ready';
-    statusText.textContent = `${listingsData.length} listings loaded`;
-    refreshBtn.style.display = 'inline-block';
-
-    // Start polling for photos (server scrapes in background)
-    if (photoPollingInterval) clearInterval(photoPollingInterval);
-    photoPollingInterval = setInterval(pollPhotos, 4000);
-    setTimeout(pollPhotos, 2000);
+    statusText.textContent = `${listingsData.length} listings${fetchDate ? ' · ' + fetchDate : ''}`;
+    refreshBtn.style.display = 'none';
 
   } catch (err) {
     console.error('Failed to fetch listings:', err);
@@ -1243,24 +1239,7 @@ function plotListings() {
         </div>
       </div>`);
 
-      // If no photo yet, try to fetch on-demand
-      if (!listing.photoUrl && listing.redfinUrl) {
-        fetch(`/api/photo/${listing.id}?url=${encodeURIComponent(listing.redfinUrl)}`)
-          .then(r => r.json())
-          .then(data => {
-            if (data.photoUrl) {
-              listing.photoUrl = data.photoUrl;
-              // Update tooltip if still open
-              if (marker.isTooltipOpen()) {
-                marker.setTooltipContent(marker.getTooltip().getContent().replace(
-                  /<div class="tip-nophoto">.*?<\/div><\/div>/s,
-                  `<img src="${data.photoUrl}" onerror="this.style.display='none'" alt="" style="width:100%;height:120px;object-fit:cover;display:block;">`
-                ));
-              }
-            }
-          })
-          .catch(() => {});
-      }
+      // Photos are pre-fetched in listings.json
     });
 
     // Click popup with full details
@@ -1533,39 +1512,6 @@ document.querySelectorAll('.chart-tab').forEach(tab => {
 buildChart('tax');
 
 // =============================================
-// PHOTO POLLING — fetch cached photos periodically
-// =============================================
-let photoPollingInterval = null;
-
-async function pollPhotos() {
-  try {
-    const resp = await fetch('/api/photos');
-    const data = await resp.json();
-    if (!data.photos) return;
-
-    let updated = false;
-    listingsData.forEach(l => {
-      const cached = data.photos[String(l.id)];
-      if (cached && !l.photoUrl) {
-        l.photoUrl = cached;
-        updated = true;
-      }
-    });
-
-    if (updated) {
-      document.getElementById('statusText').textContent =
-        `${listingsData.length} listings · ${data.count} photos`;
-    }
-
-    // Stop polling when all photos are cached
-    if (data.count >= listingsData.length && photoPollingInterval) {
-      clearInterval(photoPollingInterval);
-      photoPollingInterval = null;
-    }
-  } catch (e) { /* ignore */ }
-}
-
-// =============================================
 // CUSTOM DESTINATION
 // =============================================
 let customDestinations = []; // { name, lat, lon, marker }
@@ -1585,13 +1531,14 @@ async function addCustomDest() {
   status.style.color = '#7f8c8d';
 
   try {
-    const resp = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
-    const data = await resp.json();
-    if (data.error) {
-      status.textContent = data.error;
+    const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=us`);
+    const results = await resp.json();
+    if (!results.length) {
+      status.textContent = 'Address not found';
       status.style.color = '#e74c3c';
       return;
     }
+    const data = { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon), display: results[0].display_name };
 
     // Short name from display address
     const shortName = data.display.split(',').slice(0, 2).join(',').trim();
