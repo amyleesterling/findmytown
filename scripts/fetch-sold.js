@@ -17,7 +17,7 @@ const TOWN_IDS = {
   "Reading": 36155, "Wakefield": 36174, "Woburn": 20294, "Winchester": 36186,
   "Lexington": 36128, "Saugus": 36162, "Melrose": 10229, "Malden": 9614,
   "Medford": 10142, "North Reading": 29768,
-  "Arlington": 36088, "Concord": 29674, "Somerville": 16064
+  "Arlington": 36088, "Concord": 29674, "Somerville": 16064, "Stoneham": 36168
 };
 
 function fetchUrl(url, extraHeaders = {}) {
