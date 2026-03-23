@@ -7,6 +7,119 @@
 <title>FindMyTown — North Shore MA Home Search</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+  import { getAuth, signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
+  import { getFirestore, doc, setDoc, deleteDoc, collection, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQRQAwTnUkt47X9QWyGnO4gL9a0qc2Ytc",
+    authDomain: "findmytown-a965b.firebaseapp.com",
+    projectId: "findmytown-a965b",
+    storageBucket: "findmytown-a965b.firebasestorage.app",
+    messagingSenderId: "603624127961",
+    appId: "1:603624127961:web:cc55eb146bab0e821d6dc8"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  // Expose to global scope for inline handlers
+  window.firebaseAuth = auth;
+  window.firebaseDb = db;
+  window.firebaseUser = null;
+
+  window.firebaseSignIn = async function() {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user') console.error('Sign-in error:', err);
+    }
+  };
+
+  window.firebaseSignOut = async function() {
+    await signOut(auth);
+  };
+
+  // Sync favorites TO Firestore
+  window.syncFavoriteToCloud = async function(id, listingData) {
+    if (!window.firebaseUser) return;
+    try {
+      await setDoc(doc(db, 'users', window.firebaseUser.uid, 'favorites', String(id)), listingData);
+    } catch (err) { console.error('Firestore write error:', err); }
+  };
+
+  window.removeFavoriteFromCloud = async function(id) {
+    if (!window.firebaseUser) return;
+    try {
+      await deleteDoc(doc(db, 'users', window.firebaseUser.uid, 'favorites', String(id)));
+    } catch (err) { console.error('Firestore delete error:', err); }
+  };
+
+  // Load favorites FROM Firestore
+  window.loadFavoritesFromCloud = async function() {
+    if (!window.firebaseUser) return;
+    try {
+      const snap = await getDocs(collection(db, 'users', window.firebaseUser.uid, 'favorites'));
+      let changed = false;
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        const id = Number(data.id) || data.id;
+        if (!heartedIds.has(id)) {
+          heartedIds.add(id);
+          changed = true;
+        }
+        if (!savedFavorites[id]) {
+          savedFavorites[id] = data;
+          changed = true;
+        }
+      });
+      if (changed) {
+        localStorage.setItem('heartedListings', JSON.stringify([...heartedIds]));
+        localStorage.setItem('savedFavorites', JSON.stringify(savedFavorites));
+        document.getElementById('favCount').textContent = heartedIds.size;
+        // Re-render markers if listings loaded
+        if (typeof refreshMarkerStyles === 'function') refreshMarkerStyles();
+      }
+    } catch (err) { console.error('Firestore read error:', err); }
+  };
+
+  // Upload all local favorites to cloud (first-time merge)
+  window.uploadLocalFavoritesToCloud = async function() {
+    if (!window.firebaseUser) return;
+    for (const id of heartedIds) {
+      const data = savedFavorites[id] || { id: Number(id) };
+      await window.syncFavoriteToCloud(id, data);
+    }
+  };
+
+  // Auth state listener
+  onAuthStateChanged(auth, async (user) => {
+    window.firebaseUser = user;
+    const btn = document.getElementById('authBtn');
+    const avatar = document.getElementById('authAvatar');
+    if (user) {
+      btn.textContent = '';
+      btn.title = user.displayName + ' — click to sign out';
+      btn.onclick = window.firebaseSignOut;
+      avatar.src = user.photoURL || '';
+      avatar.style.display = user.photoURL ? '' : 'none';
+      btn.prepend(avatar);
+      btn.append(user.displayName.split(' ')[0]);
+      // Merge: upload local → cloud, then load cloud → local
+      await window.uploadLocalFavoritesToCloud();
+      await window.loadFavoritesFromCloud();
+    } else {
+      btn.textContent = 'Sign in';
+      btn.title = 'Sign in with Google to sync favorites across devices';
+      btn.onclick = window.firebaseSignIn;
+      avatar.style.display = 'none';
+    }
+  });
+</script>
 <style>
   :root {
     --ocean: #1a5276;
@@ -749,6 +862,7 @@
     /* ── Tab bar: hide criteria, compact tabs ── */
     .main-tabs .criteria-inline { display: none !important; }
     .main-tab { padding: 8px 16px; font-size: 0.82rem; }
+    #authBtn { font-size: 0.68rem !important; padding: 4px 8px !important; margin-left: 0 !important; }
 
     /* ── Map: nearly full screen ── */
     #map { height: calc(100vh - 44px); height: calc(100dvh - 44px); }
@@ -864,7 +978,11 @@
   <button class="main-tab active" data-view="map">Map</button>
   <button class="main-tab" data-view="favorites">Favorites <span id="favCount" class="tab-badge">0</span></button>
   <button class="main-tab" data-view="sold">Sold Trends</button>
-  <div class="criteria-inline" style="margin-left:auto;font-size:0.72rem;color:rgba(255,255,255,0.5);padding-right:1rem;display:flex;align-items:center;">Single Family Home (SFH) $650K–$1.1M · 3+bd · 1,600+sqft · 10K+lot</div>
+  <div class="criteria-inline" style="margin-left:auto;font-size:0.72rem;color:rgba(255,255,255,0.5);padding-right:0.5rem;display:flex;align-items:center;">Single Family Home (SFH) $650K–$1.1M · 3+bd · 1,600+sqft · 10K+lot</div>
+  <button id="authBtn" onclick="firebaseSignIn()" style="margin-left:auto;padding:5px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.1);color:white;font-size:0.75rem;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;margin-right:8px;" title="Sign in with Google to sync favorites across devices">
+    <img id="authAvatar" src="" style="width:20px;height:20px;border-radius:50%;display:none;" alt="">
+    Sign in
+  </button>
 </div>
 
 <div id="view-map">
@@ -1096,7 +1214,7 @@ if (heartedIds.size > 0) document.getElementById('favCount').textContent = heart
 // Save full listing data for favorites so they persist even if listing drops from feed
 const savedFavorites = JSON.parse(localStorage.getItem('savedFavorites') || '{}');
 function saveFavoriteData(listing) {
-  savedFavorites[listing.id] = {
+  const data = {
     id: listing.id, address: listing.address, city: listing.city,
     state: listing.state, zip: listing.zip, lat: listing.lat, lon: listing.lon,
     price: listing.price, priceFormatted: listing.priceFormatted,
@@ -1106,11 +1224,21 @@ function saveFavoriteData(listing) {
     description: listing.description, townMatch: listing.townMatch,
     savedAt: new Date().toISOString()
   };
+  savedFavorites[listing.id] = data;
   localStorage.setItem('savedFavorites', JSON.stringify(savedFavorites));
+  // Sync to cloud
+  if (window.syncFavoriteToCloud) window.syncFavoriteToCloud(listing.id, data);
 }
 function removeFavoriteData(id) {
   delete savedFavorites[id];
   localStorage.setItem('savedFavorites', JSON.stringify(savedFavorites));
+  // Sync to cloud
+  if (window.removeFavoriteFromCloud) window.removeFavoriteFromCloud(id);
+}
+
+// Helper for cloud sync to refresh all marker styles
+function refreshMarkerStyles() {
+  Object.keys(listingMarkerMap).forEach(id => updateMarkerStyle(Number(id)));
 }
 
 function toggleHeart(id) {
@@ -2043,13 +2171,40 @@ function renderSoldView() {
   const ppsqftMin = Math.min(...ppsqfts), ppsqftMax = Math.max(...ppsqfts);
   const lotMin = Math.min(...lots), lotMax = Math.max(...lots);
 
+  // Check which sold homes match favorites (by address+city or redfinUrl)
+  const favAddrs = new Set();
+  const favUrls = new Set();
+  Object.values(savedFavorites).forEach(f => {
+    if (f.address && f.city) favAddrs.add((f.address + '|' + f.city).toLowerCase().trim());
+    if (f.redfinUrl) favUrls.add(f.redfinUrl);
+  });
+  // Also check active hearted listings
+  listingsData.filter(l => heartedIds.has(l.id)).forEach(l => {
+    if (l.address && l.city) favAddrs.add((l.address + '|' + l.city).toLowerCase().trim());
+    if (l.redfinUrl) favUrls.add(l.redfinUrl);
+  });
+
+  function isSoldFavorite(s) {
+    const addr = ((s.address || '') + '|' + (s.city || s.townMatch || '')).toLowerCase().trim();
+    return favAddrs.has(addr) || favUrls.has(s.redfinUrl);
+  }
+
+  // Sort: favorites first, then by date
+  const sorted = sales.sort((a, b) => {
+    const aFav = isSoldFavorite(a) ? 1 : 0;
+    const bFav = isSoldFavorite(b) ? 1 : 0;
+    if (aFav !== bFav) return bFav - aFav;
+    return (b.soldDate || '').localeCompare(a.soldDate || '');
+  });
+
   // Table
   const tbody = document.getElementById('soldTableBody');
-  tbody.innerHTML = sales.sort((a,b) => (b.soldDate || '').localeCompare(a.soldDate || '')).map(s => {
+  tbody.innerHTML = sorted.map(s => {
     const soldDateStr = s.soldDate ? new Date(s.soldDate + 'T00:00:00').toLocaleDateString() : '—';
     const lotAcres = s.lotSqft ? (s.lotSqft / 43560).toFixed(2) : null;
-    return `<tr>
-      <td><a href="${s.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${s.address}</a></td>
+    const fav = isSoldFavorite(s);
+    return `<tr style="${fav ? 'background:rgba(233,30,99,0.08);' : ''}">
+      <td><a href="${s.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${fav ? '❤️ ' : ''}${s.address}</a></td>
       <td>${s.city || s.townMatch || '—'}</td>
       <td style="font-weight:600">$${(s.salePrice/1000).toFixed(0)}K</td>
       <td style="${soldHeat(s.priceSqft, ppsqftMin, ppsqftMax, false)}">${s.priceSqft ? '$' + s.priceSqft : '—'}</td>
