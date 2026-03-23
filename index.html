@@ -1768,7 +1768,7 @@ function plotListings() {
       <div style="display:flex;gap:6px;margin-top:6px;">
         ${listing.redfinUrl ? `<a class="listing-link" href="${listing.redfinUrl}" target="_blank" style="flex:1">Redfin &#8599;</a>` : ''}
         <button onclick="toggleHeart(${listing.id})" class="heart-btn-${listing.id}" style="background:${heartedIds.has(listing.id) ? '#e91e63' : '#f0f0f0'};color:${heartedIds.has(listing.id) ? 'white' : '#333'};border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">${heartedIds.has(listing.id) ? '❤️ Loved' : '🤍 Love'}</button>
-        <button onclick="dismissListing(${listing.id})" style="background:#ddd;color:#666;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;" title="Dismiss">&#128465;</button>
+        <button onclick="dismissListing(${listing.id})" style="background:#ddd;color:#666;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;" title="Dismiss">🗑️ Hide</button>
       </div>
     </div>`;
 
