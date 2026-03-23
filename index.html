@@ -773,6 +773,12 @@
     text-decoration: none; border: none; cursor: pointer;
   }
 
+  /* ── Sold sortable headers ── */
+  .sold-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  .sold-sortable:hover { background: rgba(26,82,118,0.12); }
+  .sold-sortable.active-sort { background: rgba(26,82,118,0.08); }
+  .sold-sortable .arrow { font-size: 0.6em; opacity: 0.4; }
+  .sold-sortable.active-sort .arrow { opacity: 1; color: var(--ocean); }
   /* ── Sold Stats ── */
   .sold-stats {
     display: grid;
@@ -976,7 +982,7 @@
 
 <!-- ── Tab Bar with criteria ── -->
 <div class="main-tabs">
-  <img src="logo.png" alt="FindMyTown" style="height:28px;margin:0 8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));">
+  <img src="logo-text.png" alt="FindMyTown" style="height:24px;margin:0 6px 0 10px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));">
   <button class="main-tab active" data-view="map">Map</button>
   <button class="main-tab" data-view="favorites">Favorites <span id="favCount" class="tab-badge">0</span></button>
   <button class="main-tab" data-view="sold">Sold Trends</button>
@@ -996,6 +1002,18 @@
       style="flex:1;padding:6px 12px;border:1px solid #bbb;border-radius:5px;font-size:0.85rem;min-width:200px;">
   </div>
   <div id="searchCount" style="font-size:0.78rem;color:var(--ocean);font-weight:600;"></div>
+  <select id="recentFilter" onchange="applyRecentFilter()" style="padding:5px 8px;border:1px solid #bbb;border-radius:5px;font-size:0.8rem;background:white;color:#333;cursor:pointer;" title="Filter by how recently listed">
+    <option value="0">All listings</option>
+    <option value="1">Last 1 day</option>
+    <option value="2">Last 2 days</option>
+    <option value="3">Last 3 days</option>
+    <option value="5">Last 5 days</option>
+    <option value="7">Last 7 days</option>
+    <option value="14">Last 14 days</option>
+    <option value="21">Last 21 days</option>
+    <option value="30">Last 1 month</option>
+    <option value="60">Last 2 months</option>
+  </select>
   <div class="dest-divider" style="border-left:1px solid #ccc;height:20px;margin:0 8px;"></div>
   <div class="filter-group dest-group" style="max-width:350px;">
     <input type="text" id="customDestInput" placeholder="e.g. 100 Main St, Boston MA"
@@ -1111,20 +1129,33 @@
     <div id="soldLoading" style="text-align:center;padding:2rem;color:#999;">Loading sold data...</div>
     <div id="soldContent" style="display:none">
       <div id="soldStats" class="sold-stats"></div>
-      <div class="table-wrap" style="margin-top:1rem;">
+      <!-- Chart + Map area -->
+      <div id="soldChartArea" style="display:none;margin:1rem 0;background:white;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.08);padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h3 id="soldChartTitle" style="font-size:1rem;color:var(--ocean);font-weight:600;margin:0;"></h3>
+          <div style="display:flex;gap:6px;">
+            <button id="soldChartToggle" onclick="toggleSoldChartView()" style="background:var(--ocean);color:white;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:0.75rem;font-weight:600;">Show Map</button>
+            <button onclick="closeSoldChart()" style="background:none;border:1px solid #ccc;color:#999;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:0.75rem;">&times; Close</button>
+          </div>
+        </div>
+        <div id="soldChartBars" style="max-height:350px;overflow-y:auto;"></div>
+        <div id="soldMapView" style="display:none;height:450px;border-radius:8px;overflow:hidden;"></div>
+      </div>
+      <div style="font-size:0.7rem;color:#999;margin:4px 0 8px;text-align:center;">Click a column header to sort and visualize</div>
+      <div class="table-wrap">
         <table id="soldTable">
           <thead>
             <tr>
-              <th>Address</th>
-              <th>Town</th>
-              <th>Sale Price</th>
-              <th>$/sqft</th>
-              <th>Sqft</th>
-              <th>Beds</th>
-              <th>Baths</th>
-              <th>Lot</th>
-              <th>Sold Date</th>
-              <th>DOM</th>
+              <th class="sold-sortable" data-key="address">Address <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="city">Town <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="salePrice">Sale Price <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="priceSqft">$/sqft <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="sqft">Sqft <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="beds">Beds <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="baths">Baths <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="lotSqft">Lot <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="soldDate">Sold Date <span class="arrow">&#9660;</span></th>
+              <th class="sold-sortable" data-key="dom">DOM <span class="arrow">&#9660;</span></th>
             </tr>
           </thead>
           <tbody id="soldTableBody"></tbody>
@@ -1652,6 +1683,10 @@ function undoAllDismissals() {
   plotListings();
 }
 
+function applyRecentFilter() {
+  plotListings();
+}
+
 function plotListings() {
   // Clear old markers
   listingMarkers.forEach(m => map.removeLayer(m));
@@ -1659,9 +1694,13 @@ function plotListings() {
   listingMarkerMap = {};
 
   const showListings = document.getElementById('showListings').checked;
+  const recentDays = parseInt(document.getElementById('recentFilter').value) || 0;
+  const recentMs = recentDays * 24 * 60 * 60 * 1000;
 
   listingsData.forEach(listing => {
     if (dismissedIds.has(listing.id)) return; // Skip dismissed
+    // Recent filter: if timeOnRedfin is available, use it; else skip filter
+    if (recentDays > 0 && listing.timeOnRedfin != null && listing.timeOnRedfin > recentMs) return;
     if (!listing.lat || !listing.lon) return;
 
     const town = listing.town;
@@ -1757,6 +1796,17 @@ function plotListings() {
     listingMarkers.push(marker);
     listingMarkerMap[listing.id] = marker;
   });
+
+  // Update count in status bar
+  const shownCount = listingMarkers.length;
+  const totalCount = listingsData.filter(l => !dismissedIds.has(l.id)).length;
+  const statusEl = document.getElementById('statusText');
+  const fetchDate = statusEl.textContent.match(/·(.+)/)?.[1]?.trim() || '';
+  if (recentDays > 0) {
+    statusEl.textContent = `${shownCount} of ${totalCount} listings (last ${recentDays}d)${fetchDate ? ' · ' + fetchDate : ''}`;
+  } else {
+    statusEl.textContent = `${totalCount} listings${fetchDate ? ' · ' + fetchDate : ''}`;
+  }
 }
 
 // Update the persistent town info card
@@ -2128,6 +2178,14 @@ async function loadSoldData() {
   }
 }
 
+let soldSortKey = 'soldDate';
+let soldSortAsc = false;
+let soldSales = [];
+let soldMap = null;
+let soldMapMarkers = [];
+let soldChartMode = 'chart'; // 'chart' or 'map'
+let activeSoldMetric = null;
+
 function renderSoldView() {
   if (!soldData) return;
   const loading = document.getElementById('soldLoading');
@@ -2135,38 +2193,95 @@ function renderSoldView() {
   loading.style.display = 'none';
   content.style.display = '';
 
-  const sales = soldData.sold || soldData.sales || [];
-  document.getElementById('soldSummary').textContent = `${sales.length} homes sold in last 5 months`;
+  soldSales = soldData.sold || soldData.sales || [];
+  document.getElementById('soldSummary').textContent = `${soldSales.length} homes sold in last 5 months`;
 
   // Stats
-  const prices = sales.map(s => s.salePrice).filter(p => p > 0);
-  const doms = sales.map(s => s.dom).filter(d => d != null && d >= 0);
-
+  const prices = soldSales.map(s => s.salePrice).filter(p => p > 0);
+  const doms = soldSales.map(s => s.dom).filter(d => d != null && d >= 0);
   const avgSale = prices.length ? Math.round(prices.reduce((a,b) => a+b, 0) / prices.length) : 0;
-  const medSale = prices.length ? prices.sort((a,b) => a-b)[Math.floor(prices.length/2)] : 0;
-  const avgPsf = sales.filter(s => s.priceSqft > 0).length ? Math.round(sales.filter(s => s.priceSqft > 0).map(s => s.priceSqft).reduce((a,b) => a+b, 0) / sales.filter(s => s.priceSqft > 0).length) : 0;
+  const medSale = prices.length ? [...prices].sort((a,b) => a-b)[Math.floor(prices.length/2)] : 0;
+  const avgPsf = soldSales.filter(s => s.priceSqft > 0).length ? Math.round(soldSales.filter(s => s.priceSqft > 0).map(s => s.priceSqft).reduce((a,b) => a+b, 0) / soldSales.filter(s => s.priceSqft > 0).length) : 0;
   const avgDom = doms.length ? Math.round(doms.reduce((a,b) => a+b, 0) / doms.length) : 0;
 
   document.getElementById('soldStats').innerHTML = `
-    <div class="sold-stat-card"><div class="stat-value">${sales.length}</div><div class="stat-label">Homes Sold</div></div>
+    <div class="sold-stat-card"><div class="stat-value">${soldSales.length}</div><div class="stat-label">Homes Sold</div></div>
     <div class="sold-stat-card"><div class="stat-value">$${(avgSale/1000).toFixed(0)}K</div><div class="stat-label">Avg Sale Price</div></div>
     <div class="sold-stat-card"><div class="stat-value">$${(medSale/1000).toFixed(0)}K</div><div class="stat-label">Median Sale Price</div></div>
     <div class="sold-stat-card"><div class="stat-value">$${avgPsf}</div><div class="stat-label">Avg $/sqft</div></div>
     <div class="sold-stat-card"><div class="stat-value">${doms.length ? avgDom : '—'}</div><div class="stat-label">Avg Days on Market</div></div>
   `;
 
-  // Heatmap helper: interpolate green (good) ↔ red (bad)
-  function soldHeat(val, min, max, invert) {
-    if (val == null || isNaN(val)) return '';
-    const t = Math.max(0, Math.min(1, (val - min) / (max - min || 1)));
-    const ratio = invert ? 1 - t : t; // invert: higher=green, normal: lower=green
-    const r = Math.round(ratio < 0.5 ? 220 : 220 - (ratio - 0.5) * 2 * 180);
-    const g = Math.round(ratio < 0.5 ? 80 + ratio * 2 * 140 : 220);
-    const b = Math.round(70);
-    return `background:rgba(${r},${g},${b},0.18);`;
-  }
+  renderSoldTable();
 
-  // Compute ranges for heatmap
+  // Wire up sortable headers
+  document.querySelectorAll('.sold-sortable').forEach(th => {
+    th.onclick = () => {
+      const key = th.dataset.key;
+      if (soldSortKey === key) { soldSortAsc = !soldSortAsc; }
+      else { soldSortKey = key; soldSortAsc = key === 'address' || key === 'city' || key === 'soldDate'; }
+      document.querySelectorAll('.sold-sortable').forEach(h => h.classList.remove('active-sort'));
+      th.classList.add('active-sort');
+      th.querySelector('.arrow').innerHTML = soldSortAsc ? '&#9650;' : '&#9660;';
+      renderSoldTable();
+      // Show chart for numeric columns
+      const chartable = ['salePrice','priceSqft','sqft','beds','baths','lotSqft','dom'];
+      if (chartable.includes(key)) {
+        activeSoldMetric = key;
+        showSoldChart(key);
+      }
+    };
+  });
+}
+
+// Heatmap color helper
+function soldHeatColor(val, min, max, invert) {
+  if (val == null || isNaN(val)) return null;
+  const t = Math.max(0, Math.min(1, (val - min) / (max - min || 1)));
+  const ratio = invert ? 1 - t : t;
+  const r = Math.round(ratio < 0.5 ? 220 : 220 - (ratio - 0.5) * 2 * 180);
+  const g = Math.round(ratio < 0.5 ? 80 + ratio * 2 * 140 : 220);
+  const b = Math.round(70);
+  return { r, g, b, css: `rgba(${r},${g},${b},0.18)`, solid: `rgb(${r},${g},${b})` };
+}
+
+function isSoldFavorite(s) {
+  const favAddrs = new Set();
+  const favUrls = new Set();
+  Object.values(savedFavorites).forEach(f => {
+    if (f.address && f.city) favAddrs.add((f.address + '|' + f.city).toLowerCase().trim());
+    if (f.redfinUrl) favUrls.add(f.redfinUrl);
+  });
+  listingsData.filter(l => heartedIds.has(l.id)).forEach(l => {
+    if (l.address && l.city) favAddrs.add((l.address + '|' + l.city).toLowerCase().trim());
+    if (l.redfinUrl) favUrls.add(l.redfinUrl);
+  });
+  const addr = ((s.address || '') + '|' + (s.city || s.townMatch || '')).toLowerCase().trim();
+  return favAddrs.has(addr) || favUrls.has(s.redfinUrl);
+}
+
+function renderSoldTable() {
+  const sales = [...soldSales];
+
+  // Sort
+  sales.sort((a, b) => {
+    // Favorites always first
+    const aFav = isSoldFavorite(a) ? 1 : 0;
+    const bFav = isSoldFavorite(b) ? 1 : 0;
+    if (aFav !== bFav) return bFav - aFav;
+
+    let va = a[soldSortKey], vb = b[soldSortKey];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === 'string' && typeof vb === 'string') return soldSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    const na = typeof va === 'string' ? va : Number(va);
+    const nb = typeof vb === 'string' ? vb : Number(vb);
+    if (typeof na === 'string') return soldSortAsc ? na.localeCompare(nb) : nb.localeCompare(na);
+    return soldSortAsc ? na - nb : nb - na;
+  });
+
+  // Compute heatmap ranges
   const sqfts = sales.map(s => s.sqft).filter(v => v > 0);
   const ppsqfts = sales.map(s => s.priceSqft).filter(v => v > 0);
   const lots = sales.map(s => s.lotSqft).filter(v => v > 0);
@@ -2174,35 +2289,10 @@ function renderSoldView() {
   const ppsqftMin = Math.min(...ppsqfts), ppsqftMax = Math.max(...ppsqfts);
   const lotMin = Math.min(...lots), lotMax = Math.max(...lots);
 
-  // Check which sold homes match favorites (by address+city or redfinUrl)
-  const favAddrs = new Set();
-  const favUrls = new Set();
-  Object.values(savedFavorites).forEach(f => {
-    if (f.address && f.city) favAddrs.add((f.address + '|' + f.city).toLowerCase().trim());
-    if (f.redfinUrl) favUrls.add(f.redfinUrl);
-  });
-  // Also check active hearted listings
-  listingsData.filter(l => heartedIds.has(l.id)).forEach(l => {
-    if (l.address && l.city) favAddrs.add((l.address + '|' + l.city).toLowerCase().trim());
-    if (l.redfinUrl) favUrls.add(l.redfinUrl);
-  });
+  const heat = (v, mn, mx, inv) => { const c = soldHeatColor(v, mn, mx, inv); return c ? `background:${c.css};` : ''; };
 
-  function isSoldFavorite(s) {
-    const addr = ((s.address || '') + '|' + (s.city || s.townMatch || '')).toLowerCase().trim();
-    return favAddrs.has(addr) || favUrls.has(s.redfinUrl);
-  }
-
-  // Sort: favorites first, then by date
-  const sorted = sales.sort((a, b) => {
-    const aFav = isSoldFavorite(a) ? 1 : 0;
-    const bFav = isSoldFavorite(b) ? 1 : 0;
-    if (aFav !== bFav) return bFav - aFav;
-    return (b.soldDate || '').localeCompare(a.soldDate || '');
-  });
-
-  // Table
   const tbody = document.getElementById('soldTableBody');
-  tbody.innerHTML = sorted.map(s => {
+  tbody.innerHTML = sales.map(s => {
     const soldDateStr = s.soldDate ? new Date(s.soldDate + 'T00:00:00').toLocaleDateString() : '—';
     const lotAcres = s.lotSqft ? (s.lotSqft / 43560).toFixed(2) : null;
     const fav = isSoldFavorite(s);
@@ -2210,15 +2300,139 @@ function renderSoldView() {
       <td><a href="${s.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${fav ? '❤️ ' : ''}${s.address}</a></td>
       <td>${s.city || s.townMatch || '—'}</td>
       <td style="font-weight:600">$${(s.salePrice/1000).toFixed(0)}K</td>
-      <td style="${soldHeat(s.priceSqft, ppsqftMin, ppsqftMax, false)}">${s.priceSqft ? '$' + s.priceSqft : '—'}</td>
-      <td style="${soldHeat(s.sqft, sqftMin, sqftMax, true)}">${s.sqft ? s.sqft.toLocaleString() : '—'}</td>
+      <td style="${heat(s.priceSqft, ppsqftMin, ppsqftMax, false)}">${s.priceSqft ? '$' + s.priceSqft : '—'}</td>
+      <td style="${heat(s.sqft, sqftMin, sqftMax, true)}">${s.sqft ? s.sqft.toLocaleString() : '—'}</td>
       <td>${s.beds || '—'}</td>
       <td>${s.baths || '—'}</td>
-      <td style="${soldHeat(s.lotSqft, lotMin, lotMax, true)}">${lotAcres ? lotAcres + ' ac' : '—'}</td>
+      <td style="${heat(s.lotSqft, lotMin, lotMax, true)}">${lotAcres ? lotAcres + ' ac' : '—'}</td>
       <td>${soldDateStr}</td>
       <td>${s.dom != null && s.dom >= 0 ? s.dom : '—'}</td>
     </tr>`;
   }).join('');
+}
+
+// ── Sold Chart (bar chart by town average) ──
+const soldMetricLabels = {
+  salePrice: 'Avg Sale Price', priceSqft: 'Avg $/sqft', sqft: 'Avg Sqft',
+  beds: 'Avg Beds', baths: 'Avg Baths', lotSqft: 'Avg Lot (acres)', dom: 'Avg Days on Market'
+};
+const soldMetricInvert = { salePrice: false, priceSqft: false, sqft: true, beds: true, baths: true, lotSqft: true, dom: false };
+
+function showSoldChart(key) {
+  const area = document.getElementById('soldChartArea');
+  area.style.display = '';
+  document.getElementById('soldChartTitle').textContent = soldMetricLabels[key] + ' by Town';
+  soldChartMode = 'chart';
+  document.getElementById('soldChartToggle').textContent = 'Show Map';
+  document.getElementById('soldChartBars').style.display = '';
+  document.getElementById('soldMapView').style.display = 'none';
+
+  // Aggregate by town
+  const byTown = {};
+  soldSales.forEach(s => {
+    const town = s.city || s.townMatch || 'Unknown';
+    if (!byTown[town]) byTown[town] = { vals: [], count: 0 };
+    let v = s[key];
+    if (key === 'lotSqft' && v) v = v / 43560; // acres
+    if (v != null && !isNaN(v) && v > 0) byTown[town].vals.push(v);
+    byTown[town].count++;
+  });
+
+  const townAvgs = Object.entries(byTown)
+    .filter(([,d]) => d.vals.length > 0)
+    .map(([name, d]) => ({ name, avg: d.vals.reduce((a,b) => a+b, 0) / d.vals.length, count: d.count }))
+    .sort((a, b) => b.avg - a.avg);
+
+  if (!townAvgs.length) { document.getElementById('soldChartBars').innerHTML = '<div style="padding:1rem;color:#999;">No data</div>'; return; }
+
+  const maxVal = Math.max(...townAvgs.map(t => t.avg));
+  const invert = soldMetricInvert[key];
+
+  const formatVal = (v) => {
+    if (key === 'salePrice') return '$' + (v/1000).toFixed(0) + 'K';
+    if (key === 'priceSqft') return '$' + Math.round(v);
+    if (key === 'sqft') return Math.round(v).toLocaleString();
+    if (key === 'lotSqft') return v.toFixed(2) + ' ac';
+    return v.toFixed(1);
+  };
+
+  document.getElementById('soldChartBars').innerHTML = townAvgs.map(t => {
+    const pct = (t.avg / maxVal * 100).toFixed(1);
+    const c = soldHeatColor(t.avg, Math.min(...townAvgs.map(x=>x.avg)), maxVal, invert);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:0.78rem;">
+      <div style="width:130px;text-align:right;font-weight:600;color:#333;flex-shrink:0;">${t.name}</div>
+      <div style="flex:1;background:#f0f0f0;border-radius:4px;height:20px;overflow:hidden;">
+        <div style="width:${pct}%;height:100%;background:${c ? c.solid : '#48c9b0'};border-radius:4px;transition:width 0.3s;"></div>
+      </div>
+      <div style="width:70px;font-size:0.72rem;color:#555;flex-shrink:0;">${formatVal(t.avg)} <span style="color:#aaa;font-size:0.6rem;">(${t.count})</span></div>
+    </div>`;
+  }).join('');
+
+  area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeSoldChart() {
+  document.getElementById('soldChartArea').style.display = 'none';
+  activeSoldMetric = null;
+  if (soldMap) { soldMap.remove(); soldMap = null; }
+}
+
+function toggleSoldChartView() {
+  if (!activeSoldMetric) return;
+  if (soldChartMode === 'chart') {
+    soldChartMode = 'map';
+    document.getElementById('soldChartToggle').textContent = 'Show Chart';
+    document.getElementById('soldChartBars').style.display = 'none';
+    document.getElementById('soldMapView').style.display = '';
+    renderSoldMap(activeSoldMetric);
+  } else {
+    soldChartMode = 'chart';
+    document.getElementById('soldChartToggle').textContent = 'Show Map';
+    document.getElementById('soldChartBars').style.display = '';
+    document.getElementById('soldMapView').style.display = 'none';
+    if (soldMap) { soldMap.remove(); soldMap = null; }
+  }
+}
+
+function renderSoldMap(key) {
+  const container = document.getElementById('soldMapView');
+  if (soldMap) { soldMap.remove(); soldMap = null; }
+
+  soldMap = L.map(container).setView([42.52, -70.95], 10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 18
+  }).addTo(soldMap);
+
+  const vals = soldSales.map(s => s[key]).filter(v => v != null && v > 0);
+  const vMin = Math.min(...vals), vMax = Math.max(...vals);
+  const invert = soldMetricInvert[key];
+
+  const formatVal = (v) => {
+    if (key === 'salePrice') return '$' + (v/1000).toFixed(0) + 'K';
+    if (key === 'priceSqft') return '$' + Math.round(v);
+    if (key === 'sqft') return Math.round(v).toLocaleString() + ' sqft';
+    if (key === 'lotSqft') return (v / 43560).toFixed(2) + ' ac';
+    return v;
+  };
+
+  soldSales.forEach(s => {
+    if (!s.lat || !s.lon) return;
+    const v = s[key];
+    if (v == null || v <= 0) return;
+    const c = soldHeatColor(v, vMin, vMax, invert);
+    if (!c) return;
+    const marker = L.circleMarker([s.lat, s.lon], {
+      radius: 7, fillColor: c.solid, color: 'white', weight: 1.5,
+      fillOpacity: 0.85
+    }).addTo(soldMap);
+    marker.bindTooltip(`<b>${s.address}</b><br>${s.city}<br>${soldMetricLabels[key]}: <b>${formatVal(v)}</b><br>$${(s.salePrice/1000).toFixed(0)}K · ${s.soldDate || ''}`, { className: 'listing-tooltip' });
+  });
+
+  // Fit bounds
+  const points = soldSales.filter(s => s.lat && s.lon && s[key] > 0).map(s => [s.lat, s.lon]);
+  if (points.length) soldMap.fitBounds(points);
+
+  setTimeout(() => soldMap.invalidateSize(), 100);
 }
 
 // =============================================

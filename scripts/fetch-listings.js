@@ -93,6 +93,7 @@ async function fetchTownListings(townName, regionId) {
       redfinUrl: h.url ? `https://www.redfin.com${h.url}` : null,
       yearBuilt: h.yearBuilt?.value || null,
       status: h.mlsStatus || 'Active',
+      timeOnRedfin: h.timeOnRedfin?.value || null, // milliseconds
       townMatch: townName,
       photoUrl: null,
       description: '',
