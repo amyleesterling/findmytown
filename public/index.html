@@ -692,6 +692,11 @@
     padding: 1.5rem;
     font-size: 0.75rem;
   }
+  /* ── Mobile toggle button for map controls ── */
+  .map-controls-toggle {
+    display: none; /* hidden on desktop */
+  }
+
   @media (max-width: 900px) {
     header h1 { font-size: 1.6rem; }
     header p { font-size: 0.85rem; }
@@ -739,22 +744,116 @@
     td { padding: 0.4rem; }
     .table-legend { font-size: 0.72rem; gap: 0.8rem; }
   }
-  @media (max-width: 480px) {
-    header { padding: 1.5rem 1rem 1.2rem; }
-    header h1 { font-size: 1.3rem; }
-    header p { font-size: 0.78rem; }
-    #map { height: 50vh; }
+
+  @media (max-width: 600px) {
+    /* ── Tab bar: hide criteria, compact tabs ── */
+    .main-tabs .criteria-inline { display: none !important; }
+    .main-tab { padding: 8px 16px; font-size: 0.82rem; }
+
+    /* ── Map: nearly full screen ── */
+    #map { height: calc(100vh - 44px); height: calc(100dvh - 44px); }
+
+    /* ── Search bar: single compact row, hide destination ── */
+    .filter-panel { padding: 6px 8px; gap: 4px; flex-wrap: nowrap; }
+    .filter-panel .dest-group { display: none; }
+    .filter-panel .dest-divider { display: none; }
+    .filter-panel .filter-group:first-child { flex: 1; max-width: none !important; }
+    .filter-panel .filter-group:first-child input { min-width: 0 !important; font-size: 0.8rem; padding: 5px 8px; }
+
+    /* ── Map controls: collapsed by default ── */
     .map-controls {
-      max-width: 130px;
-      padding: 5px 7px;
-      font-size: 0.65rem;
+      max-width: none;
+      width: auto;
+      padding: 0;
+      background: none;
+      box-shadow: none;
+      top: 8px;
+      right: 8px;
     }
-    .map-legend { max-width: 130px; }
-    .town-info-card { width: 170px; padding: 8px 10px; }
-    .town-info-card .card-grid { grid-template-columns: 1fr; }
-    .filter-panel { flex-direction: column; align-items: flex-start; }
-    .filter-count { margin-left: 0; }
-    .bar-chart { min-width: 300px; }
+    .map-controls .mc-content {
+      display: none;
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      min-width: 155px;
+    }
+    .map-controls.expanded .mc-content { display: block; }
+    .map-controls-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: none;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      font-size: 18px;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .map-controls.expanded .map-controls-toggle { margin-bottom: 8px; }
+
+    /* ── Listings status: more compact ── */
+    .listings-status { font-size: 0.68rem; padding: 4px 8px; top: 8px; left: 8px; }
+    .listings-status button { font-size: 0.65rem; padding: 2px 6px; }
+
+    /* ── Town info card: bottom sheet style ── */
+    .town-info-card {
+      width: calc(100% - 16px);
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      border-radius: 10px;
+    }
+    .town-info-card h4 { font-size: 12px; }
+    .town-info-card .card-grid { font-size: 10px; gap: 2px 8px; }
+
+    /* ── Map legend: smaller, tucked in ── */
+    .map-legend {
+      bottom: auto;
+      top: 52px;
+      left: 8px;
+      padding: 5px 8px;
+      font-size: 0.65rem;
+      max-width: 120px;
+    }
+    .map-legend h4 { font-size: 0.6rem; margin-bottom: 3px; }
+    .map-legend .lg-dot { width: 10px; height: 10px; }
+    .map-legend .lg-gradient { width: 70px; height: 7px; }
+
+    /* ── Below-map sections: tighter ── */
+    .section { padding: 0.8rem 0.6rem; }
+    .section h2 { font-size: 1rem; }
+    .charts-section { padding: 0.8rem 0.6rem; }
+    .charts-section h2 { font-size: 1rem; }
+    .chart-tabs { flex-wrap: wrap; }
+    .chart-tab { padding: 4px 8px; font-size: 0.68rem; }
+    .bar-label { width: 80px; font-size: 0.68rem; }
+    .bar-value { width: 50px; font-size: 0.68rem; }
+    table { font-size: 0.68rem; }
+    th { padding: 0.4rem 0.3rem; font-size: 0.65rem; }
+    td { padding: 0.3rem; }
+    .bar-chart { min-width: 280px; }
+
+    /* ── Favorites grid: single column ── */
+    .favorites-grid { grid-template-columns: 1fr; }
+
+    /* ── Sold stats: wrap better ── */
+    .sold-stats { flex-wrap: wrap; gap: 8px; }
+    .sold-stat-card { min-width: 120px; flex: 1; }
+  }
+
+  @media (max-width: 380px) {
+    .main-tab { padding: 8px 10px; font-size: 0.78rem; }
+    #map { height: calc(100vh - 40px); height: calc(100dvh - 40px); }
   }
 </style>
 </head>
@@ -765,7 +864,7 @@
   <button class="main-tab active" data-view="map">Map</button>
   <button class="main-tab" data-view="favorites">Favorites <span id="favCount" class="tab-badge">0</span></button>
   <button class="main-tab" data-view="sold">Sold Trends</button>
-  <div style="margin-left:auto;font-size:0.72rem;color:rgba(255,255,255,0.5);padding-right:1rem;display:flex;align-items:center;">Single Family Home (SFH) $650K–$1.1M · 3+bd · 1,600+sqft · 10K+lot</div>
+  <div class="criteria-inline" style="margin-left:auto;font-size:0.72rem;color:rgba(255,255,255,0.5);padding-right:1rem;display:flex;align-items:center;">Single Family Home (SFH) $650K–$1.1M · 3+bd · 1,600+sqft · 10K+lot</div>
 </div>
 
 <div id="view-map">
@@ -777,15 +876,15 @@
       style="flex:1;padding:6px 12px;border:1px solid #bbb;border-radius:5px;font-size:0.85rem;min-width:200px;">
   </div>
   <div id="searchCount" style="font-size:0.78rem;color:var(--ocean);font-weight:600;"></div>
-  <div style="border-left:1px solid #ccc;height:20px;margin:0 8px;"></div>
-  <div class="filter-group" style="max-width:350px;">
+  <div class="dest-divider" style="border-left:1px solid #ccc;height:20px;margin:0 8px;"></div>
+  <div class="filter-group dest-group" style="max-width:350px;">
     <input type="text" id="customDestInput" placeholder="e.g. 100 Main St, Boston MA"
       title="Add a destination (like your work address) to see driving distance from each town in the charts below"
       style="flex:1;padding:6px 10px;border:1px solid #bbb;border-radius:5px;font-size:0.82rem;min-width:180px;">
     <button id="addDestBtn" title="Adds a pin on the map and a new chart tab showing estimated distance from each town to this address"
       style="background:var(--ocean);color:white;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:0.82rem;font-weight:600;">+ Destination</button>
   </div>
-  <div id="customDestStatus" style="font-size:0.78rem;color:var(--driftwood);"></div>
+  <div id="customDestStatus" class="dest-group" style="font-size:0.78rem;color:var(--driftwood);"></div>
 </div>
 
 <!-- ── Map ── -->
@@ -800,18 +899,21 @@
     <button onclick="undoAllDismissals()" style="background:none;border:1px solid #999;color:#999;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.68rem;">Undo dismissals</button>
   </div>
 
-  <div class="map-controls">
-    <img src="logo.png" alt="FindMyTown" style="width:100%;margin-bottom:8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));">
-    <h3>Town Color</h3>
-    <label><input type="radio" name="mapMode" value="niche" checked> Niche Grade</label>
-    <label><input type="radio" name="mapMode" value="tax"> Tax Rate</label>
-    <label><input type="radio" name="mapMode" value="schools"> School Rating</label>
-    <label><input type="radio" name="mapMode" value="crane"> Dist. to Crane</label>
-    <label><input type="radio" name="mapMode" value="boston"> Dist. to Boston</label>
-    <hr class="divider">
-    <label class="checkbox-label"><input type="checkbox" id="showBubbles" checked> Town boundaries</label>
-    <label class="checkbox-label"><input type="checkbox" id="showLabels" checked> Town names</label>
-    <label class="checkbox-label"><input type="checkbox" id="showListings" checked> Redfin listings</label>
+  <div class="map-controls" id="mapControls">
+    <button class="map-controls-toggle" onclick="document.getElementById('mapControls').classList.toggle('expanded')">&#9881;</button>
+    <div class="mc-content">
+      <img src="logo.png" alt="FindMyTown" style="width:100%;margin-bottom:8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));">
+      <h3>Town Color</h3>
+      <label><input type="radio" name="mapMode" value="niche" checked> Niche Grade</label>
+      <label><input type="radio" name="mapMode" value="tax"> Tax Rate</label>
+      <label><input type="radio" name="mapMode" value="schools"> School Rating</label>
+      <label><input type="radio" name="mapMode" value="crane"> Dist. to Crane</label>
+      <label><input type="radio" name="mapMode" value="boston"> Dist. to Boston</label>
+      <hr class="divider">
+      <label class="checkbox-label"><input type="checkbox" id="showBubbles" checked> Town boundaries</label>
+      <label class="checkbox-label"><input type="checkbox" id="showLabels" checked> Town names</label>
+      <label class="checkbox-label"><input type="checkbox" id="showListings" checked> Redfin listings</label>
+    </div>
   </div>
   <div class="map-legend" id="mapLegend"></div>
   <div class="town-info-card empty" id="townInfoCard">
@@ -894,12 +996,13 @@
             <tr>
               <th>Address</th>
               <th>Town</th>
-              <th>List Price</th>
               <th>Sale Price</th>
-              <th>Diff</th>
-              <th>Sold Date</th>
-              <th>Beds</th>
+              <th>$/sqft</th>
               <th>Sqft</th>
+              <th>Beds</th>
+              <th>Baths</th>
+              <th>Lot</th>
+              <th>Sold Date</th>
               <th>DOM</th>
             </tr>
           </thead>
@@ -987,6 +1090,8 @@ const heartedIds = new Set(JSON.parse(localStorage.getItem('heartedListings') ||
 
 function saveVisited() { localStorage.setItem('visitedListings', JSON.stringify([...visitedIds])); }
 function saveHearted() { localStorage.setItem('heartedListings', JSON.stringify([...heartedIds])); }
+// Init favorites badge on load
+if (heartedIds.size > 0) document.getElementById('favCount').textContent = heartedIds.size;
 
 // Save full listing data for favorites so they persist even if listing drops from feed
 const savedFavorites = JSON.parse(localStorage.getItem('savedFavorites') || '{}');
@@ -1899,44 +2004,61 @@ function renderSoldView() {
   loading.style.display = 'none';
   content.style.display = '';
 
-  const sales = soldData.sales || [];
+  const sales = soldData.sold || soldData.sales || [];
   document.getElementById('soldSummary').textContent = `${sales.length} homes sold in last 5 months`;
 
   // Stats
   const prices = sales.map(s => s.salePrice).filter(p => p > 0);
-  const listPrices = sales.map(s => s.listPrice).filter(p => p > 0);
-  const diffs = sales.filter(s => s.listPrice > 0 && s.salePrice > 0).map(s => ((s.salePrice - s.listPrice) / s.listPrice * 100));
-  const doms = sales.map(s => s.dom).filter(d => d > 0);
+  const doms = sales.map(s => s.dom).filter(d => d != null && d >= 0);
 
   const avgSale = prices.length ? Math.round(prices.reduce((a,b) => a+b, 0) / prices.length) : 0;
   const medSale = prices.length ? prices.sort((a,b) => a-b)[Math.floor(prices.length/2)] : 0;
-  const avgDiff = diffs.length ? (diffs.reduce((a,b) => a+b, 0) / diffs.length).toFixed(1) : 0;
+  const avgPsf = sales.filter(s => s.priceSqft > 0).length ? Math.round(sales.filter(s => s.priceSqft > 0).map(s => s.priceSqft).reduce((a,b) => a+b, 0) / sales.filter(s => s.priceSqft > 0).length) : 0;
   const avgDom = doms.length ? Math.round(doms.reduce((a,b) => a+b, 0) / doms.length) : 0;
 
   document.getElementById('soldStats').innerHTML = `
     <div class="sold-stat-card"><div class="stat-value">${sales.length}</div><div class="stat-label">Homes Sold</div></div>
     <div class="sold-stat-card"><div class="stat-value">$${(avgSale/1000).toFixed(0)}K</div><div class="stat-label">Avg Sale Price</div></div>
     <div class="sold-stat-card"><div class="stat-value">$${(medSale/1000).toFixed(0)}K</div><div class="stat-label">Median Sale Price</div></div>
-    <div class="sold-stat-card"><div class="stat-value">${avgDiff > 0 ? '+' : ''}${avgDiff}%</div><div class="stat-label">Avg List vs Sale</div></div>
-    <div class="sold-stat-card"><div class="stat-value">${avgDom}</div><div class="stat-label">Avg Days on Market</div></div>
+    <div class="sold-stat-card"><div class="stat-value">$${avgPsf}</div><div class="stat-label">Avg $/sqft</div></div>
+    <div class="sold-stat-card"><div class="stat-value">${doms.length ? avgDom : '—'}</div><div class="stat-label">Avg Days on Market</div></div>
   `;
+
+  // Heatmap helper: interpolate green (good) ↔ red (bad)
+  function soldHeat(val, min, max, invert) {
+    if (val == null || isNaN(val)) return '';
+    const t = Math.max(0, Math.min(1, (val - min) / (max - min || 1)));
+    const ratio = invert ? 1 - t : t; // invert: higher=green, normal: lower=green
+    const r = Math.round(ratio < 0.5 ? 220 : 220 - (ratio - 0.5) * 2 * 180);
+    const g = Math.round(ratio < 0.5 ? 80 + ratio * 2 * 140 : 220);
+    const b = Math.round(70);
+    return `background:rgba(${r},${g},${b},0.18);`;
+  }
+
+  // Compute ranges for heatmap
+  const sqfts = sales.map(s => s.sqft).filter(v => v > 0);
+  const ppsqfts = sales.map(s => s.priceSqft).filter(v => v > 0);
+  const lots = sales.map(s => s.lotSqft).filter(v => v > 0);
+  const sqftMin = Math.min(...sqfts), sqftMax = Math.max(...sqfts);
+  const ppsqftMin = Math.min(...ppsqfts), ppsqftMax = Math.max(...ppsqfts);
+  const lotMin = Math.min(...lots), lotMax = Math.max(...lots);
 
   // Table
   const tbody = document.getElementById('soldTableBody');
-  tbody.innerHTML = sales.sort((a,b) => (b.soldDate || 0) - (a.soldDate || 0)).map(s => {
-    const diff = s.listPrice > 0 && s.salePrice > 0 ? ((s.salePrice - s.listPrice) / s.listPrice * 100) : null;
-    const diffColor = diff > 0 ? '#27ae60' : diff < 0 ? '#e74c3c' : '#666';
-    const soldDateStr = s.soldDate ? new Date(s.soldDate).toLocaleDateString() : '—';
+  tbody.innerHTML = sales.sort((a,b) => (b.soldDate || '').localeCompare(a.soldDate || '')).map(s => {
+    const soldDateStr = s.soldDate ? new Date(s.soldDate + 'T00:00:00').toLocaleDateString() : '—';
+    const lotAcres = s.lotSqft ? (s.lotSqft / 43560).toFixed(2) : null;
     return `<tr>
       <td><a href="${s.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${s.address}</a></td>
-      <td>${s.city}</td>
-      <td>$${(s.listPrice/1000).toFixed(0)}K</td>
+      <td>${s.city || s.townMatch || '—'}</td>
       <td style="font-weight:600">$${(s.salePrice/1000).toFixed(0)}K</td>
-      <td style="color:${diffColor};font-weight:600">${diff !== null ? (diff > 0 ? '+' : '') + diff.toFixed(1) + '%' : '—'}</td>
+      <td style="${soldHeat(s.priceSqft, ppsqftMin, ppsqftMax, false)}">${s.priceSqft ? '$' + s.priceSqft : '—'}</td>
+      <td style="${soldHeat(s.sqft, sqftMin, sqftMax, true)}">${s.sqft ? s.sqft.toLocaleString() : '—'}</td>
+      <td>${s.beds || '—'}</td>
+      <td>${s.baths || '—'}</td>
+      <td style="${soldHeat(s.lotSqft, lotMin, lotMax, true)}">${lotAcres ? lotAcres + ' ac' : '—'}</td>
       <td>${soldDateStr}</td>
-      <td>${s.beds}</td>
-      <td>${s.sqft ? s.sqft.toLocaleString() : '—'}</td>
-      <td>${s.dom || '—'}</td>
+      <td>${s.dom != null && s.dom >= 0 ? s.dom : '—'}</td>
     </tr>`;
   }).join('');
 }
