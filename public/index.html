@@ -893,6 +893,7 @@
       border-radius: 10px;
       box-shadow: 0 2px 16px rgba(0,0,0,0.18);
       padding: 10px 12px;
+      padding-top: 28px;
       font-size: 0.72rem;
       min-width: 155px;
     }
@@ -975,6 +976,7 @@
 
 <!-- ── Tab Bar with criteria ── -->
 <div class="main-tabs">
+  <img src="logo.png" alt="FindMyTown" style="height:28px;margin:0 8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));">
   <button class="main-tab active" data-view="map">Map</button>
   <button class="main-tab" data-view="favorites">Favorites <span id="favCount" class="tab-badge">0</span></button>
   <button class="main-tab" data-view="sold">Sold Trends</button>
@@ -1020,11 +1022,12 @@
   <div class="map-controls" id="mapControls">
     <button class="map-controls-toggle" onclick="document.getElementById('mapControls').classList.toggle('expanded')">&#9881;</button>
     <div class="mc-content">
+      <button onclick="document.getElementById('mapControls').classList.remove('expanded')" style="position:absolute;top:6px;right:8px;background:none;border:none;font-size:18px;cursor:pointer;color:#999;line-height:1;">&times;</button>
       <img src="logo.png" alt="FindMyTown" style="width:100%;margin-bottom:8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2));">
       <h3>Town Color</h3>
-      <label><input type="radio" name="mapMode" value="niche" checked> Niche Grade</label>
+      <label><input type="radio" name="mapMode" value="niche"> Niche Grade</label>
       <label><input type="radio" name="mapMode" value="tax"> Tax Rate</label>
-      <label><input type="radio" name="mapMode" value="schools"> School Rating</label>
+      <label><input type="radio" name="mapMode" value="schools" checked> School Rating</label>
       <label><input type="radio" name="mapMode" value="crane"> Dist. to Crane</label>
       <label><input type="radio" name="mapMode" value="boston"> Dist. to Boston</label>
       <hr class="divider">
@@ -1425,7 +1428,7 @@ const townLabels = {};
 const townBoundaryLayers = {};  // GeoJSON boundary polygons
 let boundaryGeoJSON = null;     // raw GeoJSON data
 let boundaryLayerGroup = null;  // L.layerGroup for all boundaries
-let currentMode = 'niche';
+let currentMode = 'schools';
 
 function getTownColor(t, mode) {
   switch (mode) {
@@ -2258,6 +2261,11 @@ document.getElementById('listingSearch').addEventListener('input', function() {
 // INIT — fetch listings on load
 // =============================================
 fetchListings();
+
+// Close map controls when tapping outside on mobile
+document.getElementById('map').addEventListener('click', function() {
+  document.getElementById('mapControls').classList.remove('expanded');
+});
 </script>
 </body>
 </html>
