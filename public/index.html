@@ -1432,7 +1432,7 @@ function getCellVal(row, col) {
 // =============================================
 // MAP
 // =============================================
-const map = L.map('map', { zoomSnap: 0.25 }).setView([42.58, -70.85], 10);
+const map = L.map('map', { zoomSnap: 0.25, tap: false }).setView([42.58, -70.85], 10);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OpenStreetMap &copy; CARTO',
   maxZoom: 18
