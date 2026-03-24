@@ -1115,7 +1115,8 @@
       <span style="color:var(--coral);">Favorites</span>
       <span id="favSummary" style="font-size:0.85rem;color:var(--driftwood);font-weight:400;"></span>
     </h2>
-    <div id="favoritesGrid" class="favorites-grid"></div>
+    <div id="favMapContainer" style="height:60vh;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);"></div>
+    <div id="favListBelow" style="margin-top:12px;"></div>
     <div id="favoritesEmpty" style="text-align:center;padding:3rem;color:#999;">
       No favorites yet — click the heart on any listing to save it here.
     </div>
@@ -1754,7 +1755,7 @@ function plotListings() {
 
     // Click popup with full details
     const popupHtml = `<div class="listing-popup">
-      ${listing.photoUrl ? `<img src="${listing.photoUrl}" onerror="this.style.display='none'" alt="">` : ''}
+      ${listing.photoUrl ? `<img src="${listing.photoUrl}" onerror="this.nextElementSibling.style.display='flex';this.style.display='none'" alt=""><div style="display:none;height:100px;background:#f0f0f0;align-items:center;justify-content:center;color:#ccc;font-size:12px;border-radius:6px;margin-bottom:8px;">No photo</div>` : ''}
       <div class="listing-price">${listing.priceFormatted || formatPrice(listing.price)}</div>
       <div class="listing-addr">${listing.address}<br>${listing.city}, ${listing.state} ${listing.zip}</div>
       <div class="listing-stats">
@@ -2097,8 +2098,10 @@ document.querySelectorAll('.main-tab').forEach(tab => {
 // =============================================
 // FAVORITES VIEW
 // =============================================
+let favMap = null;
 function renderFavorites() {
-  const grid = document.getElementById('favoritesGrid');
+  const mapContainer = document.getElementById('favMapContainer');
+  const listBelow = document.getElementById('favListBelow');
   const empty = document.getElementById('favoritesEmpty');
   // Merge current feed listings with saved favorites (for off-market ones)
   const favs = [];
@@ -2120,31 +2123,79 @@ function renderFavorites() {
   document.getElementById('favSummary').textContent = `${favs.length} saved listings${offCount ? ` (${offCount} off-market)` : ''}`;
 
   if (favs.length === 0) {
-    grid.style.display = 'none';
+    mapContainer.style.display = 'none';
+    listBelow.style.display = 'none';
     empty.style.display = '';
+    if (favMap) { favMap.remove(); favMap = null; }
     return;
   }
 
-  grid.style.display = '';
+  mapContainer.style.display = '';
+  listBelow.style.display = '';
   empty.style.display = 'none';
 
-  grid.innerHTML = favs.map(l => {
+  // Build map
+  if (favMap) { favMap.remove(); favMap = null; }
+  favMap = L.map(mapContainer, { tap: false }).setView([42.52, -70.95], 10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 18
+  }).addTo(favMap);
+
+  const points = [];
+  favs.forEach(l => {
+    if (!l.lat || !l.lon) return;
+    points.push([l.lat, l.lon]);
     const town = l.town || findTownForListing(l.lat, l.lon, l.city);
     const townName = town ? town.name : l.city;
-    return `<div class="fav-card">
-      ${l.photoUrl ? `<img src="${l.photoUrl}" onerror="this.style.display='none'" alt="">` : '<div style="height:170px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px;">No photo</div>'}
-      <div class="fav-body">
-        <div class="fav-price">${l.priceFormatted || formatPrice(l.price)}${l.offMarket ? ' <span style="font-size:11px;color:#e74c3c;font-weight:400;">OFF MARKET</span>' : ''}</div>
-        <div class="fav-addr">${l.address}, ${l.city} ${l.state} ${l.zip}</div>
-        <div class="fav-stats">${l.beds} bd · ${l.baths} ba · ${l.sqft ? l.sqft.toLocaleString() + ' sqft' : ''} ${l.lotSqft ? ' · ' + (l.lotSqft / 43560).toFixed(2) + ' acres' : ''}</div>
-        <div class="fav-town">${townName}${town ? ' · ' + town.niche + ' · SAT ' + town.sat : ''}</div>
-        <div class="fav-actions">
-          ${l.redfinUrl ? `<a href="${l.redfinUrl}" target="_blank" style="background:var(--coral);color:white;">Redfin &#8599;</a>` : ''}
-          <button onclick="toggleHeart(${l.id});renderFavorites();" style="background:#ddd;color:#666;">Remove</button>
-        </div>
+    const dist = distToBoston(l.lat, l.lon);
+    const marker = L.circleMarker([l.lat, l.lon], {
+      radius: 9, fillColor: '#e91e63', color: 'white', weight: 2,
+      fillOpacity: 0.9
+    }).addTo(favMap);
+    marker.bindPopup(`<div class="listing-popup">
+      <div class="listing-price">${l.priceFormatted || formatPrice(l.price)}${l.offMarket ? ' <span style="font-size:11px;color:#e74c3c;">OFF MARKET</span>' : ''}</div>
+      <div class="listing-addr">${l.address}<br>${l.city}, ${l.state} ${l.zip}</div>
+      <div class="listing-stats">
+        <span><b>${l.beds}</b> beds</span>
+        <span><b>${l.baths}</b> baths</span>
+        ${l.sqft ? `<span><b>${l.sqft.toLocaleString()}</b> sqft</span>` : ''}
+        ${l.lotSqft ? `<span><b>${(l.lotSqft / 43560).toFixed(2)}</b> acres</span>` : ''}
       </div>
-    </div>`;
-  }).join('');
+      <div class="listing-town">${townName}${town ? ` · ${town.niche} · $${town.estTax.toLocaleString()}/yr tax` : ''}</div>
+      <div style="font-size:11px;color:#555;margin-top:4px;">&#127970; <b>~${dist.mi} mi / ${dist.mn} min</b> to 1 Financial Pl</div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        ${l.redfinUrl ? `<a class="listing-link" href="${l.redfinUrl}" target="_blank" style="flex:1">Redfin &#8599;</a>` : ''}
+        <button onclick="toggleHeart(${l.id});renderFavorites();" style="background:#ddd;color:#666;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Remove</button>
+      </div>
+    </div>`, { maxWidth: 300 });
+    // Label with price
+    L.marker([l.lat, l.lon], {
+      icon: L.divIcon({
+        html: `<div style="font-size:10px;font-weight:700;color:#e91e63;text-shadow:1px 1px 2px white,-1px -1px 2px white,1px -1px 2px white,-1px 1px 2px white;white-space:nowrap;">${l.priceFormatted || formatPrice(l.price)}</div>`,
+        className: '', iconAnchor: [-12, 5]
+      }),
+      interactive: false
+    }).addTo(favMap);
+  });
+
+  if (points.length) favMap.fitBounds(points, { padding: [30, 30] });
+  setTimeout(() => favMap.invalidateSize(), 100);
+
+  // Compact list below map
+  listBelow.innerHTML = '<div style="font-size:0.75rem;color:#999;margin-bottom:6px;">Tap a dot on the map for details</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:0.78rem;">' +
+    '<thead><tr style="background:var(--ocean);color:white;"><th style="padding:6px 8px;text-align:left;">Address</th><th style="padding:6px 8px;">Price</th><th style="padding:6px 8px;">Town</th><th style="padding:6px 8px;">Beds/Bath</th><th style="padding:6px 8px;"></th></tr></thead><tbody>' +
+    favs.map(l => {
+      const town = l.town || findTownForListing(l.lat, l.lon, l.city);
+      return `<tr style="border-bottom:1px solid #eee;">
+        <td style="padding:6px 8px;">${l.address}, ${l.city}</td>
+        <td style="padding:6px 8px;font-weight:600;color:var(--ocean);">${l.priceFormatted || formatPrice(l.price)}${l.offMarket ? ' <span style="color:#e74c3c;font-size:10px;">OFF</span>' : ''}</td>
+        <td style="padding:6px 8px;">${town ? town.name : l.city}</td>
+        <td style="padding:6px 8px;">${l.beds}/${l.baths}</td>
+        <td style="padding:6px 8px;">${l.redfinUrl ? `<a href="${l.redfinUrl}" target="_blank" style="color:var(--coral);font-weight:600;text-decoration:none;">Redfin &#8599;</a>` : ''}</td>
+      </tr>`;
+    }).join('') +
+    '</tbody></table>';
 }
 
 // Update fav count badge whenever hearts change
