@@ -95,29 +95,18 @@ async function fetchTownListings(townName, regionId) {
       status: h.mlsStatus || 'Active',
       timeOnRedfin: h.timeOnRedfin?.value || null, // milliseconds
       townMatch: townName,
-      photoUrl: null,
-      description: '',
+      photoUrl: buildPhotoUrl(h),
+      description: h.listingRemarks || '',
     }));
 }
 
-async function scrapePhotos(listings) {
-  console.log(`Scraping photos for ${listings.length} listings...`);
-  for (let i = 0; i < listings.length; i += 3) {
-    const batch = listings.slice(i, i + 3);
-    await Promise.allSettled(batch.map(async (l) => {
-      if (!l.redfinUrl) return;
-      try {
-        const html = await fetchUrl(l.redfinUrl);
-        const ogMatch = html.match(/og:image[^>]*content="([^"]+)"/);
-        if (ogMatch) l.photoUrl = ogMatch[1];
-        // Extract listing description
-        const descMatch = html.match(/og:description[^>]*content="([^"]+)"/);
-        if (descMatch) l.description = descMatch[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
-      } catch { /* skip */ }
-    }));
-    await sleep(600);
-    if (i % 30 === 0) console.log(`  ${i}/${listings.length} done...`);
-  }
+// Redfin blocks listing-page fetches from CI IPs, so og:image scraping is dead.
+// The CDN URL is constructible from GIS API fields instead:
+// photo/{dataSourceId}/mbpaddedwide/{last 3 of MLS#}/genMid.{MLS#}_0.jpg
+function buildPhotoUrl(h) {
+  const mls = h.mlsId?.value;
+  if (!mls || h.dataSourceId == null || h.numPictures === 0) return null;
+  return `https://ssl.cdn-redfin.com/photo/${h.dataSourceId}/mbpaddedwide/${String(mls).slice(-3)}/genMid.${mls}_0.jpg`;
 }
 
 async function main() {
@@ -138,8 +127,6 @@ async function main() {
 
   console.log(`Fetched ${allListings.length} listings total`);
 
-  // Scrape photos
-  await scrapePhotos(allListings);
   const withPhotos = allListings.filter(l => l.photoUrl).length;
   console.log(`Got photos for ${withPhotos}/${allListings.length} listings`);
 
