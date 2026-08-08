@@ -1178,6 +1178,7 @@
                 <th class="sh-sortable" data-key="baths">Baths <span class="arrow">&#9660;</span></th>
                 <th class="sh-sortable" data-key="sqft">Sqft <span class="arrow">&#9660;</span></th>
                 <th class="sh-sortable" data-key="lotSqft">Lot <span class="arrow">&#9660;</span></th>
+                <th class="sh-sortable" data-key="yearBuilt">Built <span class="arrow">&#9660;</span></th>
               </tr>
             </thead>
             <tbody id="shTableBody"></tbody>
@@ -1204,6 +1205,7 @@
               <th>Baths</th>
               <th>Sqft</th>
               <th>Lot</th>
+              <th>Built</th>
             </tr>
           </thead>
           <tbody id="shPendingBody"></tbody>
@@ -2707,6 +2709,7 @@ function renderShTable() {
       <td>${s.baths || '—'}</td>
       <td>${s.sqft ? s.sqft.toLocaleString() : '—'}</td>
       <td>${lotAcres ? lotAcres + ' ac' : '—'}</td>
+      <td>${s.yearBuilt || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -2735,6 +2738,7 @@ function renderShPending() {
       <td>${p.baths || '—'}</td>
       <td>${p.sqft ? p.sqft.toLocaleString() : '—'}</td>
       <td>${lotAcres ? lotAcres + ' ac' : '—'}</td>
+      <td>${p.yearBuilt || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -2750,7 +2754,7 @@ function setSoldHomesMode(mode) {
 
 function shPopupHtml(h, isPending) {
   const lotAcres = h.lotSqft ? (h.lotSqft / 43560).toFixed(2) + ' ac' : '';
-  const stats = `${h.beds} bd · ${h.baths} ba · ${h.sqft ? h.sqft.toLocaleString() + ' sqft' : ''}${lotAcres ? ' · ' + lotAcres : ''}`;
+  const stats = `${h.beds} bd · ${h.baths} ba · ${h.sqft ? h.sqft.toLocaleString() + ' sqft' : ''}${lotAcres ? ' · ' + lotAcres : ''}${h.yearBuilt ? ' · built ' + h.yearBuilt : ''}`;
   const photo = h.photoUrl ? `<img src="${h.photoUrl}" onerror="this.style.display='none'" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-bottom:6px;">` : '';
   const priceLines = isPending
     ? `<div style="font-size:0.85rem;">List price: <b>${shListPriceCell(h)}</b></div>
