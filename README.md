@@ -2,7 +2,7 @@
 
 **Live site: https://amyleesterling.github.io/findmytown/**
 
-North Shore and Greater Boston MA home search dashboard. Compare 39 towns by school ratings, tax rates, SAT scores, and distance to key destinations. Browse active Redfin listings on an interactive map.
+North Shore and Greater Boston MA home search dashboard. Compare 40 towns by school ratings, tax rates, SAT scores, and distance to key destinations. Browse active Redfin listings on an interactive map.
 
 ## Features
 
