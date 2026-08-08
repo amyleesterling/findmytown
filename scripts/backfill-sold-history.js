@@ -161,7 +161,19 @@ async function main() {
   for (const home of targets) {
     const propertyId = propertyIdFromUrl(home.redfinUrl);
     try {
-      const events = await fetchPropertyHistory(home.redfinUrl);
+      // Retry with a long backoff on rate-limit challenges (HTTP 202/429)
+      let events;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          events = await fetchPropertyHistory(home.redfinUrl);
+          break;
+        } catch (err) {
+          const limited = /HTTP (202|429)/.test(err.message);
+          if (!limited || attempt >= 2) throw err;
+          console.log(`  rate-limited, backing off ${60 * (attempt + 1)}s...`);
+          await sleep(60000 * (attempt + 1));
+        }
+      }
       const listing = extractListing(events, home.soldDate);
       consecutiveFailures = 0;
       if (!listing) { failed++; continue; }
@@ -198,7 +210,7 @@ async function main() {
         break;
       }
     }
-    await sleep(350);
+    await sleep(1500 + Math.floor(Math.random() * 1000));
   }
 
   console.log(`Backfilled ${filled}, failed ${failed}`);
