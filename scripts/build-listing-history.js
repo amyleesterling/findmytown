@@ -58,10 +58,14 @@ function main() {
           origListPrice: l.price,
           firstSeen: date,
           lastSeen: date,
+          priceHistory: [{ date, price: l.price, event: 'Listed' }],
           photoUrl: l.photoUrl || null,
           redfinUrl: l.redfinUrl || null,
         };
       } else {
+        if (l.price !== existing.listPrice) {
+          existing.priceHistory.push({ date, price: l.price, event: 'Price Changed' });
+        }
         existing.listPrice = l.price;
         existing.lastSeen = date;
         if (l.photoUrl) existing.photoUrl = l.photoUrl;

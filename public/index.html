@@ -2638,10 +2638,34 @@ function shLikelyMultiOffer(s) {
   return s.priceDiff != null && s.priceDiff > 0 && s.dom != null && s.dom <= 14;
 }
 
+function shFmtDate(d) {
+  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
+}
+
+function shPriceHistoryText(h) {
+  if (!h.priceHistory || !h.priceHistory.length) return '';
+  return h.priceHistory.map(e =>
+    `${shFmtDate(e.date)} ${e.event || 'Price'}${e.price ? ': $' + (e.price / 1000).toFixed(0) + 'K' : ''}`
+  ).join('  →  ');
+}
+
 function shListPriceCell(h) {
   if (!h.listPrice) return '—';
   const cut = h.origListPrice && h.origListPrice !== h.listPrice;
-  return `$${(h.listPrice / 1000).toFixed(0)}K${cut ? ` <span style="color:#999;font-size:0.72rem;text-decoration:line-through;" title="Original list price — reduced while on market">$${(h.origListPrice / 1000).toFixed(0)}K</span>` : ''}`;
+  const histTitle = shPriceHistoryText(h);
+  return `<span ${histTitle ? `title="${histTitle}" style="cursor:help;border-bottom:1px dotted #bbb;"` : ''}>$${(h.listPrice / 1000).toFixed(0)}K${cut ? ` <span style="color:#999;font-size:0.72rem;text-decoration:line-through;" title="Original list price — reduced while on market">$${(h.origListPrice / 1000).toFixed(0)}K</span>` : ''}</span>`;
+}
+
+function shPriceHistoryBlock(h) {
+  if (!h.priceHistory || h.priceHistory.length < 2) return '';
+  const rows = h.priceHistory.slice(-6).map(e => {
+    const cut = e.event === 'Price Changed';
+    return `<div style="display:flex;justify-content:space-between;gap:10px;${cut ? 'color:#c0392b;' : ''}">
+      <span>${shFmtDate(e.date)} ${e.event || ''}</span>
+      <span style="font-weight:600;">${e.price ? '$' + (e.price / 1000).toFixed(0) + 'K' : '—'}</span>
+    </div>`;
+  }).join('');
+  return `<div style="font-size:0.74rem;color:#666;margin-top:5px;border-top:1px solid #eee;padding-top:5px;">${rows}</div>`;
 }
 
 function shDiffCell(s) {
@@ -2738,7 +2762,8 @@ function shPopupHtml(h, isPending) {
     <div style="font-weight:600;color:var(--ocean);">${h.address}</div>
     <div style="font-size:0.8rem;color:#777;margin-bottom:4px;">${h.city || h.townMatch || ''}</div>
     ${priceLines}
-    ${h.dom != null && h.dom >= 0 ? `<div style="font-size:0.78rem;color:#555;">On market: ${h.domEstimated ? '~' : ''}${h.dom} day${h.dom === 1 ? '' : 's'}</div>` : ''}
+    ${h.dom != null && h.dom >= 0 ? `<div style="font-size:0.78rem;color:#555;">On market: ${h.domFloor ? '&ge;' : h.domEstimated ? '~' : ''}${h.dom} day${h.dom === 1 ? '' : 's'}${h.listedDate ? ' (listed ' + shFmtDate(h.listedDate) + ')' : ''}</div>` : ''}
+    ${shPriceHistoryBlock(h)}
     <div style="font-size:0.78rem;color:#555;margin-top:4px;">${stats}</div>
     ${h.redfinUrl ? `<a href="${h.redfinUrl}" target="_blank" style="display:inline-block;margin-top:6px;font-size:0.78rem;color:var(--coral);font-weight:600;">View on Redfin &#8599;</a>` : ''}
   </div>`;
