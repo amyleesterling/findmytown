@@ -222,6 +222,7 @@ async function fetchTownPending(townName, regionId) {
       baths: h.baths || 0,
       sqft: h.sqFt?.value || 0,
       lotSqft: h.lotSize?.value || 0,
+      yearBuilt: h.yearBuilt?.value || null,
       dom: h.timeOnRedfin?.value != null ? Math.max(0, Math.round(h.timeOnRedfin.value / 86400000)) : null,
       redfinUrl: h.url ? `https://www.redfin.com${h.url}` : null,
       status: h.mlsStatus || 'Pending',
@@ -271,6 +272,7 @@ async function fetchTownSold(townName, regionId) {
     if (!lat || !lon) continue;
 
     const soldDate = parseSoldDate(row[colIdx['SOLD DATE']]);
+    const yearBuilt = parseInt(row[colIdx['YEAR BUILT']], 10) || null;
     const sqft = parseInt(row[colIdx['SQUARE FEET']], 10) || 0;
     const lotSize = parseInt(row[colIdx['LOT SIZE']], 10) || 0;
     const dom = parseInt(row[colIdx['DAYS ON MARKET']], 10) || null;
@@ -294,6 +296,7 @@ async function fetchTownSold(townName, regionId) {
       sqft,
       lotSqft: lotSize,
       priceSqft: ppsqft,
+      yearBuilt,
       dom,
       redfinUrl: redfinUrl || null,
       status: row[colIdx['STATUS']] || 'Sold',
