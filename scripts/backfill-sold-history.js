@@ -157,6 +157,13 @@ async function main() {
   console.log(`${targets.length} sold homes need listing-history backfill`);
   if (!targets.length) return;
 
+  // Save incrementally so progress survives crashes and rate-limit aborts
+  const saveHistory = () => {
+    history.count = Object.keys(history.homes).length;
+    history.updatedAt = new Date().toISOString();
+    fs.writeFileSync(historyPath, JSON.stringify(history));
+  };
+
   let filled = 0, failed = 0, consecutiveFailures = 0;
   for (const home of targets) {
     const propertyId = propertyIdFromUrl(home.redfinUrl);
@@ -195,7 +202,10 @@ async function main() {
       existing.source = 'redfin-history';
       history.homes[key] = existing;
       filled++;
-      if (filled % 25 === 0) console.log(`  ${filled}/${targets.length} backfilled...`);
+      if (filled % 25 === 0) {
+        saveHistory();
+        console.log(`  ${filled}/${targets.length} backfilled (saved)...`);
+      }
     } catch (err) {
       failed++;
       consecutiveFailures++;
@@ -216,9 +226,7 @@ async function main() {
   console.log(`Backfilled ${filled}, failed ${failed}`);
   if (!filled) return;
 
-  history.count = Object.keys(history.homes).length;
-  history.updatedAt = new Date().toISOString();
-  fs.writeFileSync(historyPath, JSON.stringify(history));
+  saveHistory();
   console.log(`Saved ${historyPath}`);
 
   // Re-attach list prices to sold.json immediately (same logic as fetch-sold).
