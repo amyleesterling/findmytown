@@ -127,15 +127,28 @@ function attachListPrice(home, historyHomes, trackingStart) {
     home.priceDiffPct = Math.round((home.priceDiff / hist.listPrice) * 1000) / 10;
   }
   if (!home.photoUrl && hist.photoUrl) home.photoUrl = hist.photoUrl;
-  // Redfin's sold CSV leaves DAYS ON MARKET blank, so estimate it from how
-  // long the home stayed in the daily listings feed (first seen -> last seen).
-  if (home.dom == null && hist.firstSeen && hist.lastSeen) {
-    const days = Math.round((new Date(hist.lastSeen) - new Date(hist.firstSeen)) / 86400000);
-    if (days >= 0) {
-      home.dom = days;
-      home.domEstimated = true;
-      // Listed before tracking began -> true DOM is at least this
-      if (trackingStart && hist.firstSeen === trackingStart) home.domFloor = true;
+  if (hist.priceHistory && hist.priceHistory.length) home.priceHistory = hist.priceHistory;
+  if (hist.listedDate) home.listedDate = hist.listedDate;
+  // Redfin's sold CSV leaves DAYS ON MARKET blank. Best available substitute:
+  // 1. Exact list -> pending dates from the backfilled Redfin property history
+  // 2. List date -> sold date (overstates by the closing period, so marked ~)
+  // 3. How long the home stayed in the daily listings feed (marked ~)
+  if (home.dom == null) {
+    if (hist.listedDate && hist.pendingDate) {
+      const days = Math.round((new Date(hist.pendingDate) - new Date(hist.listedDate)) / 86400000);
+      if (days >= 0) home.dom = days;
+    } else if (hist.listedDate && (home.soldDate || hist.lastSeen)) {
+      const end = home.soldDate || hist.lastSeen;
+      const days = Math.round((new Date(end) - new Date(hist.listedDate)) / 86400000);
+      if (days >= 0) { home.dom = days; home.domEstimated = true; }
+    } else if (hist.firstSeen && hist.lastSeen) {
+      const days = Math.round((new Date(hist.lastSeen) - new Date(hist.firstSeen)) / 86400000);
+      if (days >= 0) {
+        home.dom = days;
+        home.domEstimated = true;
+        // Listed before tracking began -> true DOM is at least this
+        if (trackingStart && hist.firstSeen === trackingStart) home.domFloor = true;
+      }
     }
   }
   return home;
@@ -377,7 +390,11 @@ async function main() {
   console.log(`\nSaved to ${publicPath} and ${rootPath} (${(json.length / 1024).toFixed(0)} KB)`);
 }
 
-main().catch(err => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { historyKey, loadListingHistory, attachListPrice, formatPrice, fetchUrl, sleep };

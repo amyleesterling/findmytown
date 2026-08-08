@@ -138,10 +138,15 @@ function updateListingHistory(listings) {
         origListPrice: l.price,
         firstSeen: today,
         lastSeen: today,
+        priceHistory: [{ date: today, price: l.price, event: 'Listed' }],
         photoUrl: l.photoUrl || null,
         redfinUrl: l.redfinUrl || null,
       };
     } else {
+      if (!existing.priceHistory) existing.priceHistory = [{ date: existing.firstSeen, price: existing.origListPrice, event: 'Listed' }];
+      if (l.price !== existing.listPrice) {
+        existing.priceHistory.push({ date: today, price: l.price, event: 'Price Changed' });
+      }
       existing.listPrice = l.price;
       existing.lastSeen = today;
       if (l.photoUrl) existing.photoUrl = l.photoUrl;

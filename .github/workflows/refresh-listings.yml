@@ -25,6 +25,10 @@ jobs:
       - name: Fetch sold + pending homes from Redfin
         run: node scripts/fetch-sold.js
 
+      - name: Backfill listing history for untracked sold homes
+        run: node scripts/backfill-sold-history.js
+        continue-on-error: true
+
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
