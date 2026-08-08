@@ -1183,7 +1183,7 @@
             <tbody id="shTableBody"></tbody>
           </table>
         </div>
-        <div class="sh-note">Sale vs list compares the final sale price to the last list price seen in the daily feed (tracking began June 2026). Homes sold before tracking started show "—". "On Market" values marked "~" are estimated from how long the home stayed in the daily feed, since Redfin doesn't report days on market for sold homes.</div>
+        <div class="sh-note">Sale vs list compares the final sale price to the last list price seen in the daily feed (tracking began June 2026); a struck-through price is the original list price before a cut. Homes sold before tracking started show "—". "On Market" values marked "~" are estimated from how long the home stayed in the daily feed ("&ge;" = already listed when tracking began), since Redfin doesn't report days on market for sold homes. &#128293; = sold over asking within 2 weeks, the best public proxy for multiple offers — actual offer counts are private to the listing agent and not published in any MLS feed.</div>
       </div>
 
       <!-- Offer accepted / under agreement -->
@@ -2592,6 +2592,7 @@ function renderSoldHomesView() {
 
   const withDiff = shSold.filter(s => s.priceDiff != null);
   const overAsk = withDiff.filter(s => s.priceDiff > 0);
+  const multiOffer = shSold.filter(shLikelyMultiOffer);
   const avgDiffPct = withDiff.length ? withDiff.reduce((a, s) => a + s.priceDiffPct, 0) / withDiff.length : null;
   const prices = shSold.map(s => s.salePrice).filter(p => p > 0);
   const medSale = prices.length ? [...prices].sort((a, b) => a - b)[Math.floor(prices.length / 2)] : 0;
@@ -2601,6 +2602,7 @@ function renderSoldHomesView() {
     <div class="sold-stat-card"><div class="stat-value">$${(medSale / 1000).toFixed(0)}K</div><div class="stat-label">Median Sale Price</div></div>
     <div class="sold-stat-card"><div class="stat-value">${withDiff.length ? Math.round(overAsk.length / withDiff.length * 100) + '%' : '—'}</div><div class="stat-label">Sold Over Ask${withDiff.length ? ' (' + withDiff.length + ' tracked)' : ''}</div></div>
     <div class="sold-stat-card"><div class="stat-value">${avgDiffPct != null ? (avgDiffPct > 0 ? '+' : '') + avgDiffPct.toFixed(1) + '%' : '—'}</div><div class="stat-label">Avg Sale vs List</div></div>
+    <div class="sold-stat-card" title="Sold over asking within 2 weeks — likely received multiple offers"><div class="stat-value">${withDiff.length ? '&#128293; ' + multiOffer.length : '—'}</div><div class="stat-label">Likely Multi-Offer</div></div>
     <div class="sold-stat-card"><div class="stat-value">${shPending.length}</div><div class="stat-label">Offer Accepted</div></div>
   `;
 
@@ -2626,7 +2628,20 @@ function renderSoldHomesView() {
 
 function shDomCell(h) {
   if (h.dom == null || h.dom < 0) return '<span style="color:#aaa">—</span>';
-  return `${h.domEstimated ? '~' : ''}${h.dom} day${h.dom === 1 ? '' : 's'}`;
+  const prefix = h.domFloor ? '&ge;' : h.domEstimated ? '~' : '';
+  return `${prefix}${h.dom} day${h.dom === 1 ? '' : 's'}`;
+}
+
+// Best public proxy for offer competition: sold over asking within 2 weeks.
+// Actual offer counts are private to the listing agent and not in any feed.
+function shLikelyMultiOffer(s) {
+  return s.priceDiff != null && s.priceDiff > 0 && s.dom != null && s.dom <= 14;
+}
+
+function shListPriceCell(h) {
+  if (!h.listPrice) return '—';
+  const cut = h.origListPrice && h.origListPrice !== h.listPrice;
+  return `$${(h.listPrice / 1000).toFixed(0)}K${cut ? ` <span style="color:#999;font-size:0.72rem;text-decoration:line-through;" title="Original list price — reduced while on market">$${(h.origListPrice / 1000).toFixed(0)}K</span>` : ''}`;
 }
 
 function shDiffCell(s) {
@@ -2659,9 +2674,9 @@ function renderShTable() {
       <td><a href="${s.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${s.address}</a></td>
       <td>${s.city || s.townMatch || '—'}</td>
       <td>${soldDateStr}</td>
-      <td>${s.listPrice ? '$' + (s.listPrice / 1000).toFixed(0) + 'K' : '—'}</td>
+      <td>${shListPriceCell(s)}</td>
       <td style="font-weight:600">$${(s.salePrice / 1000).toFixed(0)}K</td>
-      <td>${shDiffCell(s)}</td>
+      <td>${shDiffCell(s)}${shLikelyMultiOffer(s) ? ' <span title="Sold over asking within 2 weeks — likely received multiple offers" style="cursor:help;">&#128293;</span>' : ''}</td>
       <td>${shDomCell(s)}</td>
       <td>${s.beds || '—'}</td>
       <td>${s.baths || '—'}</td>
@@ -2689,7 +2704,7 @@ function renderShPending() {
       <td><a href="${p.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${p.address}</a></td>
       <td>${p.city || p.townMatch || '—'}</td>
       <td><span class="sh-status-badge">${p.status || 'Pending'}</span></td>
-      <td style="font-weight:600">${p.listPrice ? '$' + (p.listPrice / 1000).toFixed(0) + 'K' : '—'}</td>
+      <td style="font-weight:600">${shListPriceCell(p)}</td>
       <td>${shDomCell(p)}</td>
       <td>${p.beds || '—'}</td>
       <td>${p.baths || '—'}</td>
@@ -2713,10 +2728,10 @@ function shPopupHtml(h, isPending) {
   const stats = `${h.beds} bd · ${h.baths} ba · ${h.sqft ? h.sqft.toLocaleString() + ' sqft' : ''}${lotAcres ? ' · ' + lotAcres : ''}`;
   const photo = h.photoUrl ? `<img src="${h.photoUrl}" onerror="this.style.display='none'" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-bottom:6px;">` : '';
   const priceLines = isPending
-    ? `<div style="font-size:0.85rem;">List price: <b>$${(h.listPrice / 1000).toFixed(0)}K</b></div>
+    ? `<div style="font-size:0.85rem;">List price: <b>${shListPriceCell(h)}</b></div>
        <div style="font-size:0.78rem;color:#b9770e;font-weight:600;">${h.status || 'Pending'} — final sale price not yet available</div>`
-    : `<div style="font-size:0.85rem;">Sold: <b>$${(h.salePrice / 1000).toFixed(0)}K</b>${h.soldDate ? ' on ' + new Date(h.soldDate + 'T00:00:00').toLocaleDateString() : ''}</div>
-       <div style="font-size:0.82rem;">${h.listPrice ? 'List: $' + (h.listPrice / 1000).toFixed(0) + 'K · ' + shDiffCell(h) : 'List price unknown'}</div>`;
+    : `<div style="font-size:0.85rem;">Sold: <b>$${(h.salePrice / 1000).toFixed(0)}K</b>${h.soldDate ? ' on ' + new Date(h.soldDate + 'T00:00:00').toLocaleDateString() : ''}${shLikelyMultiOffer(h) ? ' <span title="Sold over asking within 2 weeks — likely multiple offers">&#128293;</span>' : ''}</div>
+       <div style="font-size:0.82rem;">${h.listPrice ? 'List: ' + shListPriceCell(h) + ' · ' + shDiffCell(h) : 'List price unknown'}</div>`;
   return `<div style="min-width:200px;max-width:240px;">
     ${photo}
     <div style="font-weight:600;color:var(--ocean);">${h.address}</div>

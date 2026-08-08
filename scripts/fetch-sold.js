@@ -100,16 +100,23 @@ function historyKey(address, city) {
 function loadListingHistory() {
   try {
     const raw = fs.readFileSync(path.join(__dirname, '..', 'listing-history.json'), 'utf8');
-    return JSON.parse(raw).homes || {};
+    const homes = JSON.parse(raw).homes || {};
+    // Earliest firstSeen = when feed tracking began. Homes already listed then
+    // have an unknown earlier start, so their estimated DOM is only a floor.
+    let trackingStart = null;
+    for (const h of Object.values(homes)) {
+      if (h.firstSeen && (!trackingStart || h.firstSeen < trackingStart)) trackingStart = h.firstSeen;
+    }
+    return { homes, trackingStart };
   } catch (e) {
     console.warn('No listing-history.json found — sale vs list comparison will be empty');
-    return {};
+    return { homes: {}, trackingStart: null };
   }
 }
 
 // Attach the list price we archived while the home was an active listing,
 // so the UI can show final sale price vs asking price.
-function attachListPrice(home, historyHomes) {
+function attachListPrice(home, historyHomes, trackingStart) {
   const hist = historyHomes[historyKey(home.address, home.city || '')];
   if (!hist) return home;
   home.listPrice = hist.listPrice;
@@ -127,6 +134,8 @@ function attachListPrice(home, historyHomes) {
     if (days >= 0) {
       home.dom = days;
       home.domEstimated = true;
+      // Listed before tracking began -> true DOM is at least this
+      if (trackingStart && hist.firstSeen === trackingStart) home.domFloor = true;
     }
   }
   return home;
@@ -300,8 +309,8 @@ async function main() {
   console.log(`\nTotal: ${unique.length} unique sold homes (${allSold.length} before dedup)`);
 
   // Attach archived list prices for sale-vs-list comparison
-  const historyHomes = loadListingHistory();
-  unique.forEach(h => attachListPrice(h, historyHomes));
+  const { homes: historyHomes, trackingStart } = loadListingHistory();
+  unique.forEach(h => attachListPrice(h, historyHomes, trackingStart));
   const withList = unique.filter(h => h.listPrice).length;
   console.log(`Matched list prices for ${withList}/${unique.length} sold homes`);
 
@@ -326,7 +335,7 @@ async function main() {
     pendingSeen.add(key);
     return true;
   });
-  pending.forEach(h => attachListPrice(h, historyHomes));
+  pending.forEach(h => attachListPrice(h, historyHomes, trackingStart));
   console.log(`Total: ${pending.length} unique pending homes`);
   console.log('\nPer-town counts:');
   for (const [town, count] of Object.entries(townCounts).sort((a, b) => {
