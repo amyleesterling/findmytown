@@ -109,6 +109,52 @@ function buildPhotoUrl(h) {
   return `https://ssl.cdn-redfin.com/photo/${h.dataSourceId}/mbpaddedwide/${String(mls).slice(-3)}/genMid.${mls}_0.jpg`;
 }
 
+// Archive every home's list price in listing-history.json so fetch-sold.js can
+// show sale price vs list price after the home sells and leaves the live feed.
+// Seed/rebuild the archive with scripts/build-listing-history.js.
+function historyKey(address, city) {
+  return `${address}|${city}`.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+}
+
+function updateListingHistory(listings) {
+  const historyPath = path.join(__dirname, '..', 'listing-history.json');
+  let history = { homes: {} };
+  try {
+    history = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
+    if (!history.homes) history.homes = {};
+  } catch (e) { /* first run: start fresh */ }
+
+  const today = new Date().toISOString().slice(0, 10);
+  for (const l of listings) {
+    if (!l.address || !l.price) continue;
+    const key = historyKey(l.address, l.city || '');
+    const existing = history.homes[key];
+    if (!existing) {
+      history.homes[key] = {
+        id: l.id,
+        address: l.address,
+        city: l.city,
+        listPrice: l.price,
+        origListPrice: l.price,
+        firstSeen: today,
+        lastSeen: today,
+        photoUrl: l.photoUrl || null,
+        redfinUrl: l.redfinUrl || null,
+      };
+    } else {
+      existing.listPrice = l.price;
+      existing.lastSeen = today;
+      if (l.photoUrl) existing.photoUrl = l.photoUrl;
+      if (l.redfinUrl) existing.redfinUrl = l.redfinUrl;
+    }
+  }
+
+  history.count = Object.keys(history.homes).length;
+  history.updatedAt = new Date().toISOString();
+  fs.writeFileSync(historyPath, JSON.stringify(history));
+  console.log(`Listing history: ${history.count} homes archived`);
+}
+
 async function main() {
   console.log(`Fetching listings from ${Object.keys(TOWN_IDS).length} towns...`);
   const allListings = [];
@@ -129,6 +175,8 @@ async function main() {
 
   const withPhotos = allListings.filter(l => l.photoUrl).length;
   console.log(`Got photos for ${withPhotos}/${allListings.length} listings`);
+
+  updateListingHistory(allListings);
 
   // Save to public directory
   const output = {

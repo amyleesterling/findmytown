@@ -12,6 +12,7 @@ North Shore and Greater Boston MA home search dashboard. Compare 39 towns by sch
 - Visited and dismissed listing tracking
 - Town comparison table and bar charts
 - Recently sold homes with stats
+- Sold Homes page (map + list) comparing final sale price vs list price, with an offer-accepted/under-agreement section
 - Custom destination with driving distance estimates
 - Full-text search across listing addresses and descriptions
 - Daily auto-refresh via GitHub Actions (7am ET)

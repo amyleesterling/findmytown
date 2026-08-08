@@ -22,10 +22,13 @@ jobs:
       - name: Fetch listings from Redfin
         run: node scripts/fetch-listings.js
 
+      - name: Fetch sold + pending homes from Redfin
+        run: node scripts/fetch-sold.js
+
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/listings.json listings.json
+          git add public/listings.json listings.json public/sold.json sold.json listing-history.json
           git diff --cached --quiet || git commit -m "Auto-refresh listings $(date -u +%Y-%m-%d)"
           git push
