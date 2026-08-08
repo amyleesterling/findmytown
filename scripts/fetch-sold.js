@@ -92,6 +92,80 @@ function parseSoldDate(dateStr) {
   return `${parts[2]}-${month}-${parts[1].padStart(2, '0')}`;
 }
 
+// Same key format as fetch-listings.js / build-listing-history.js
+function historyKey(address, city) {
+  return `${address}|${city}`.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+}
+
+function loadListingHistory() {
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, '..', 'listing-history.json'), 'utf8');
+    return JSON.parse(raw).homes || {};
+  } catch (e) {
+    console.warn('No listing-history.json found — sale vs list comparison will be empty');
+    return {};
+  }
+}
+
+// Attach the list price we archived while the home was an active listing,
+// so the UI can show final sale price vs asking price.
+function attachListPrice(home, historyHomes) {
+  const hist = historyHomes[historyKey(home.address, home.city || '')];
+  if (!hist) return home;
+  home.listPrice = hist.listPrice;
+  home.listPriceFormatted = formatPrice(hist.listPrice);
+  home.origListPrice = hist.origListPrice;
+  if (home.salePrice) {
+    home.priceDiff = home.salePrice - hist.listPrice;
+    home.priceDiffPct = Math.round((home.priceDiff / hist.listPrice) * 1000) / 10;
+  }
+  if (!home.photoUrl && hist.photoUrl) home.photoUrl = hist.photoUrl;
+  return home;
+}
+
+// Fetch homes under agreement (offer accepted, sale not yet closed) from the
+// JSON GIS endpoint. status=130 = contingent + pending. These have no final
+// sale price yet, only the list price.
+async function fetchTownPending(townName, regionId) {
+  const params = new URLSearchParams({
+    al: '1', num_homes: '100', ord: 'redfin-recommended-asc',
+    page_number: '1', sf: '1,2,3,5,6,7', status: '130',
+    uipt: '1', v: '8',
+    min_listing_approx_size: '1600', min_num_beds: '3', min_num_baths: '1.5',
+    min_lot_size: '10000',
+    region_id: String(regionId), region_type: '6',
+  });
+
+  const url = `https://www.redfin.com/stingray/api/gis?${params.toString()}`;
+  const data = await fetchUrl(url, { 'Referer': 'https://www.redfin.com/' });
+  const parsed = JSON.parse(data.replace(/^\{\}&&/, ''));
+
+  if (!parsed.payload?.homes) return [];
+
+  return parsed.payload.homes
+    .filter(h => h.latLong?.value?.latitude && h.latLong?.value?.longitude)
+    .filter(h => h.uiPropertyType === 1) // Single-family only
+    .filter(h => h.price?.value >= 650000 && h.price.value <= 1100000)
+    .map(h => ({
+      id: h.propertyId,
+      address: h.streetLine?.value || 'Unknown',
+      city: h.city || townName,
+      state: h.state || 'MA',
+      zip: h.zip || h.postalCode?.value || '',
+      lat: h.latLong.value.latitude,
+      lon: h.latLong.value.longitude,
+      listPrice: h.price?.value || 0,
+      listPriceFormatted: formatPrice(h.price?.value),
+      beds: h.beds || 0,
+      baths: h.baths || 0,
+      sqft: h.sqFt?.value || 0,
+      lotSqft: h.lotSize?.value || 0,
+      redfinUrl: h.url ? `https://www.redfin.com${h.url}` : null,
+      status: h.mlsStatus || 'Pending',
+      townMatch: townName,
+    }));
+}
+
 async function fetchTownSold(townName, regionId) {
   // gis-csv endpoint with sold_within_days=150 returns actual sold data
   // uipt=1 = single-family only
@@ -214,6 +288,36 @@ async function main() {
   });
 
   console.log(`\nTotal: ${unique.length} unique sold homes (${allSold.length} before dedup)`);
+
+  // Attach archived list prices for sale-vs-list comparison
+  const historyHomes = loadListingHistory();
+  unique.forEach(h => attachListPrice(h, historyHomes));
+  const withList = unique.filter(h => h.listPrice).length;
+  console.log(`Matched list prices for ${withList}/${unique.length} sold homes`);
+
+  // Fetch under-agreement homes (offer accepted, no final price yet)
+  console.log(`\nFetching pending/under-agreement homes...`);
+  const allPending = [];
+  for (let i = 0; i < townEntries.length; i += 5) {
+    const batch = townEntries.slice(i, i + 5);
+    const results = await Promise.allSettled(
+      batch.map(([name, id]) => fetchTownPending(name, id))
+    );
+    for (let j = 0; j < results.length; j++) {
+      if (results[j].status === 'fulfilled') allPending.push(...results[j].value);
+      else console.error(`  ${batch[j][0]} pending: ${results[j].reason?.message}`);
+    }
+    if (i + 5 < townEntries.length) await sleep(400);
+  }
+  const pendingSeen = new Set();
+  const pending = allPending.filter(h => {
+    const key = `${h.address}|${h.city}`;
+    if (pendingSeen.has(key)) return false;
+    pendingSeen.add(key);
+    return true;
+  });
+  pending.forEach(h => attachListPrice(h, historyHomes));
+  console.log(`Total: ${pending.length} unique pending homes`);
   console.log('\nPer-town counts:');
   for (const [town, count] of Object.entries(townCounts).sort((a, b) => {
     const ac = typeof a[1] === 'number' ? a[1] : -1;
@@ -234,7 +338,9 @@ async function main() {
   // Save output
   const output = {
     sold: unique,
+    pending,
     count: unique.length,
+    pendingCount: pending.length,
     fetchedAt: new Date().toISOString(),
     soldWithinDays: 150,
     priceRange: { min: 650000, max: 1100000 },
