@@ -2670,12 +2670,13 @@ function renderShTable() {
   tbody.innerHTML = sales.map(s => {
     const soldDateStr = s.soldDate ? new Date(s.soldDate + 'T00:00:00').toLocaleDateString() : '—';
     const lotAcres = s.lotSqft ? (s.lotSqft / 43560).toFixed(2) : null;
-    return `<tr>
+    const overAsk = s.priceDiff != null && s.priceDiff > 0;
+    return `<tr style="${overAsk ? 'background:rgba(39,174,96,0.10);box-shadow:inset 3px 0 0 #27ae60;' : ''}">
       <td><a href="${s.redfinUrl || '#'}" target="_blank" style="color:var(--ocean);font-weight:600;text-decoration:none;">${s.address}</a></td>
       <td>${s.city || s.townMatch || '—'}</td>
       <td>${soldDateStr}</td>
       <td>${shListPriceCell(s)}</td>
-      <td style="font-weight:600">$${(s.salePrice / 1000).toFixed(0)}K</td>
+      <td style="font-weight:600;${overAsk ? 'color:#1e8449;' : ''}">$${(s.salePrice / 1000).toFixed(0)}K</td>
       <td>${shDiffCell(s)}${shLikelyMultiOffer(s) ? ' <span title="Sold over asking within 2 weeks — likely received multiple offers" style="cursor:help;">&#128293;</span>' : ''}</td>
       <td>${shDomCell(s)}</td>
       <td>${s.beds || '—'}</td>
@@ -2755,9 +2756,14 @@ function renderShMap() {
   const pts = [];
   shSold.forEach(s => {
     if (!s.lat || !s.lon) return;
+    const overAsk = s.priceDiff != null && s.priceDiff > 0;
     const color = s.priceDiff == null ? '#7f8c8d' : s.priceDiff >= 0 ? '#27ae60' : '#e74c3c';
     L.circleMarker([s.lat, s.lon], {
-      radius: 7, fillColor: color, color: 'white', weight: 1.5, fillOpacity: 0.85
+      radius: overAsk ? 9 : 6,
+      fillColor: color,
+      color: overAsk ? '#1e8449' : 'white',
+      weight: overAsk ? 2.5 : 1.5,
+      fillOpacity: overAsk ? 0.95 : 0.7
     }).addTo(shMap).bindPopup(shPopupHtml(s, false));
     pts.push([s.lat, s.lon]);
   });
