@@ -120,6 +120,15 @@ function attachListPrice(home, historyHomes) {
     home.priceDiffPct = Math.round((home.priceDiff / hist.listPrice) * 1000) / 10;
   }
   if (!home.photoUrl && hist.photoUrl) home.photoUrl = hist.photoUrl;
+  // Redfin's sold CSV leaves DAYS ON MARKET blank, so estimate it from how
+  // long the home stayed in the daily listings feed (first seen -> last seen).
+  if (home.dom == null && hist.firstSeen && hist.lastSeen) {
+    const days = Math.round((new Date(hist.lastSeen) - new Date(hist.firstSeen)) / 86400000);
+    if (days >= 0) {
+      home.dom = days;
+      home.domEstimated = true;
+    }
+  }
   return home;
 }
 
@@ -160,6 +169,7 @@ async function fetchTownPending(townName, regionId) {
       baths: h.baths || 0,
       sqft: h.sqFt?.value || 0,
       lotSqft: h.lotSize?.value || 0,
+      dom: h.timeOnRedfin?.value != null ? Math.max(0, Math.round(h.timeOnRedfin.value / 86400000)) : null,
       redfinUrl: h.url ? `https://www.redfin.com${h.url}` : null,
       status: h.mlsStatus || 'Pending',
       townMatch: townName,
