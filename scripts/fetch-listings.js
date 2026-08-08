@@ -18,34 +18,9 @@ const TOWN_IDS = {
   "Arlington": 36088, "Concord": 29674, "Somerville": 16064, "Stoneham": 36168, "Lynnfield": 36131
 };
 
-function fetchUrl(url, extraHeaders = {}) {
-  return new Promise((resolve, reject) => {
-    const parsedUrl = new URL(url);
-    https.get({
-      hostname: parsedUrl.hostname,
-      path: parsedUrl.pathname + parsedUrl.search,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        ...extraHeaders,
-      }
-    }, (response) => {
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        const loc = response.headers.location.startsWith('http')
-          ? response.headers.location
-          : `https://${parsedUrl.hostname}${response.headers.location}`;
-        return fetchUrl(loc, extraHeaders).then(resolve).catch(reject);
-      }
-      let data = '';
-      response.on('data', chunk => data += chunk);
-      response.on('end', () => {
-        if (response.statusCode !== 200) reject(new Error(`HTTP ${response.statusCode}`));
-        else resolve(data);
-      });
-    }).on('error', reject);
-  });
-}
+// Shared proxy-aware fetcher (honors HTTPS_PROXY in sandboxed dev
+// environments, connects directly on CI runners)
+const { fetchUrl } = require('./fetch-sold');
 
 function formatPrice(amount) {
   if (!amount) return '$0';

@@ -71,12 +71,61 @@ function extractListing(events, soldDate) {
   };
 }
 
-async function fetchPropertyHistory(propertyId) {
-  const url = `https://www.redfin.com/stingray/api/home/details/belowTheFold?propertyId=${propertyId}&accessLevel=1`;
-  const data = await fetchUrl(url, { 'Referer': 'https://www.redfin.com/' });
-  const parsed = JSON.parse(data.replace(/^\{\}&&/, ''));
-  const events = parsed.payload?.propertyHistoryInfo?.events;
-  if (!Array.isArray(events) || !events.length) throw new Error('no history events in payload');
+// The home-details API (belowTheFold etc.) is cookie-gated and returns 403,
+// but the property page itself serves fine with browser headers and embeds
+// the full propertyHistoryInfo blob — either as plain JSON or escaped one
+// string-level deep, depending on the render.
+const PAGE_HEADERS = {
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Sec-Fetch-Site': 'none', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document',
+  'Upgrade-Insecure-Requests': '1',
+};
+
+function braceMatch(text, start) {
+  let depth = 0, inStr = false, esc = false;
+  for (let j = start; j < text.length; j++) {
+    const c = text[j];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (inStr) { if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) return text.slice(start, j + 1); }
+  }
+  return null;
+}
+
+function extractPropertyHistoryInfo(html) {
+  const plain = '"propertyHistoryInfo":';
+  let i = html.indexOf(plain);
+  if (i >= 0) {
+    const blob = braceMatch(html, i + plain.length);
+    if (blob) { try { return JSON.parse(blob); } catch (e) { /* fall through */ } }
+  }
+  const escaped = '\\"propertyHistoryInfo\\":';
+  i = html.indexOf(escaped);
+  if (i >= 0) {
+    // Un-escape one string level in a window (NUL is a safe placeholder
+    // since it can't appear in the HTML), then brace-match plain JSON.
+    const NUL = String.fromCharCode(0);
+    const window = html.slice(i, i + 400000)
+      .split('\\\\').join(NUL)
+      .split('\\"').join('"')
+      .split(NUL).join('\\');
+    const j = window.indexOf(plain);
+    if (j >= 0) {
+      const blob = braceMatch(window, j + plain.length);
+      if (blob) { try { return JSON.parse(blob); } catch (e) { /* fall through */ } }
+    }
+  }
+  return null;
+}
+
+async function fetchPropertyHistory(redfinUrl) {
+  const html = await fetchUrl(redfinUrl, PAGE_HEADERS);
+  const info = extractPropertyHistoryInfo(html);
+  const events = info?.events;
+  if (!Array.isArray(events) || !events.length) throw new Error('no history events in page');
   return events;
 }
 
@@ -97,9 +146,13 @@ async function main() {
     if (!history.homes) history.homes = {};
   } catch (e) { /* start fresh */ }
 
+  // Only the homes the Sold Homes page shows (site search criteria) — no
+  // need to fetch ~900 property pages for homes the UI filters out anyway
+  const meetsCriteria = h =>
+    (h.beds || 0) >= 3 && (h.baths || 0) >= 1.5 && (h.sqft || 0) >= 1600 && (h.lotSqft || 0) >= 10000;
   const targets = (soldData.sold || []).filter(h => {
     const hist = history.homes[historyKey(h.address, h.city || '')];
-    return !(hist && hist.listedDate) && propertyIdFromUrl(h.redfinUrl);
+    return meetsCriteria(h) && !(hist && hist.listedDate) && h.redfinUrl;
   });
   console.log(`${targets.length} sold homes need listing-history backfill`);
   if (!targets.length) return;
@@ -108,7 +161,7 @@ async function main() {
   for (const home of targets) {
     const propertyId = propertyIdFromUrl(home.redfinUrl);
     try {
-      const events = await fetchPropertyHistory(propertyId);
+      const events = await fetchPropertyHistory(home.redfinUrl);
       const listing = extractListing(events, home.soldDate);
       consecutiveFailures = 0;
       if (!listing) { failed++; continue; }

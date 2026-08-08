@@ -3,6 +3,8 @@
 // The JSON GIS endpoint doesn't return sold data properly, but the CSV endpoint does
 // when using the sold_within_days parameter.
 const https = require('https');
+const http = require('http');
+const tls = require('tls');
 const fs = require('fs');
 const path = require('path');
 
@@ -20,10 +22,12 @@ const TOWN_IDS = {
   "Arlington": 36088, "Concord": 29674, "Somerville": 16064, "Stoneham": 36168, "Lynnfield": 36131
 };
 
+// Honors HTTPS_PROXY (needed in sandboxed dev environments); connects
+// directly when unset, as on GitHub Actions runners.
 function fetchUrl(url, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
-    https.get({
+    const options = {
       hostname: parsedUrl.hostname,
       path: parsedUrl.pathname + parsedUrl.search,
       headers: {
@@ -32,7 +36,8 @@ function fetchUrl(url, extraHeaders = {}) {
         'Accept-Language': 'en-US,en;q=0.9',
         ...extraHeaders,
       }
-    }, (response) => {
+    };
+    const handleResponse = (response) => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         const loc = response.headers.location.startsWith('http')
           ? response.headers.location
@@ -45,7 +50,30 @@ function fetchUrl(url, extraHeaders = {}) {
         if (response.statusCode !== 200) reject(new Error(`HTTP ${response.statusCode}: ${data.substring(0, 200)}`));
         else resolve(data);
       });
-    }).on('error', reject);
+    };
+
+    const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+    if (!proxy) {
+      https.get(options, handleResponse).on('error', reject);
+      return;
+    }
+    const proxyUrl = new URL(proxy);
+    const connectReq = http.request({
+      host: proxyUrl.hostname,
+      port: proxyUrl.port || 80,
+      method: 'CONNECT',
+      path: `${parsedUrl.hostname}:443`,
+      headers: { Host: `${parsedUrl.hostname}:443` },
+    });
+    connectReq.on('connect', (res, socket) => {
+      if (res.statusCode !== 200) return reject(new Error(`Proxy CONNECT failed: ${res.statusCode}`));
+      https.get({
+        ...options,
+        createConnection: () => tls.connect({ socket, servername: parsedUrl.hostname }),
+      }, handleResponse).on('error', reject);
+    });
+    connectReq.on('error', reject);
+    connectReq.end();
   });
 }
 
@@ -155,11 +183,14 @@ function attachListPrice(home, historyHomes, trackingStart) {
 }
 
 // Fetch homes under agreement (offer accepted, sale not yet closed) from the
-// JSON GIS endpoint. status=130 = contingent + pending. These have no final
-// sale price yet, only the list price.
+// JSON GIS endpoint. status=130 = contingent + pending/under-agreement; the
+// status filter only takes effect when market/mpt/start are present (this is
+// the exact query shape redfin.com itself uses for status=contingent+pending).
+// These have no final sale price yet, only the list price.
 async function fetchTownPending(townName, regionId) {
   const params = new URLSearchParams({
-    al: '1', num_homes: '100', ord: 'redfin-recommended-asc',
+    al: '1', market: 'boston', mpt: '99', start: '0', num_homes: '350',
+    ord: 'redfin-recommended-asc',
     page_number: '1', sf: '1,2,3,5,6,7', status: '130',
     uipt: '1', v: '8',
     min_listing_approx_size: '1600', min_num_beds: '3', min_num_baths: '1.5',
